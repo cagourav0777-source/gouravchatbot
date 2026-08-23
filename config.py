@@ -8,7 +8,5 @@ API_HASH = os.environ.get("API_HASH", "")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 MONGO_URI = os.environ.get("MONGO_URI", "")
 DB_NAME = os.environ.get("DB_NAME", "gourav_ai_db")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-
-# Render automatically sets the PORT environment variable
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 PORT = int(os.environ.get("PORT", 10000))

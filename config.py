@@ -3,10 +3,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-API_ID = int(os.getenv("API_ID", "0"))
-API_HASH = os.getenv("API_HASH", "")
-BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-DB_NAME = os.getenv("DB_NAME", "gourav_ai_db")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-PORT = int(os.getenv("PORT", 8080))
+API_ID = int(os.environ.get("API_ID", "0"))
+API_HASH = os.environ.get("API_HASH", "")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+MONGO_URI = os.environ.get("MONGO_URI", "")
+DB_NAME = os.environ.get("DB_NAME", "gourav_ai_db")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
+# Render automatically sets the PORT environment variable
+PORT = int(os.environ.get("PORT", 10000))

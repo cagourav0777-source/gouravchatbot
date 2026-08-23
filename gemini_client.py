@@ -25,13 +25,13 @@ PERSONALITY_PROMPTS = {
     ),
 }
 
-# Current Active Models
-MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"]
+# Current Gemini 3 Series Active Models
+MODELS = ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3-flash-preview"]
 
 def _generate_chat_reply_sync(personality: str, history: list, new_message: str) -> str:
     system_prompt = PERSONALITY_PROMPTS.get(personality, PERSONALITY_PROMPTS["baka"])
     
-    # 1. Past history format karein
+    # 1. Past conversation format karein
     formatted_history = []
     for entry in history:
         role = entry.get("role", "user")
@@ -52,13 +52,13 @@ def _generate_chat_reply_sync(personality: str, history: list, new_message: str)
     last_err = None
     for model_name in MODELS:
         try:
-            # 2. Official Chat session banayein
+            # 2. Chat Session initialize karein
             chat = client.chats.create(
                 model=model_name,
                 config=config_obj,
                 history=formatted_history
             )
-            # 3. Chat ke through send_message call karein (No AFC conflict)
+            # 3. Message bhejein
             response = chat.send_message(new_message)
             if response and response.text:
                 return response.text.strip()

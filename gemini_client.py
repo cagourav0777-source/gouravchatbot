@@ -1,10 +1,9 @@
 import asyncio
-from google import genai
-from google.genai import types
+from groq import Groq
 import config
 
-# Google GenAI Client
-client = genai.Client(api_key=config.GEMINI_API_KEY)
+# Initialize Groq Client
+client = Groq(api_key=config.GROQ_API_KEY)
 
 PERSONALITY_PROMPTS = {
     "baka": (
@@ -25,55 +24,38 @@ PERSONALITY_PROMPTS = {
     ),
 }
 
-# Current Gemini 3 Series Active Models
-MODELS = ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3-flash-preview"]
-
-def _generate_chat_reply_sync(personality: str, history: list, new_message: str) -> str:
+def _generate_groq_reply_sync(personality: str, history: list, new_message: str) -> str:
     system_prompt = PERSONALITY_PROMPTS.get(personality, PERSONALITY_PROMPTS["baka"])
     
-    # 1. Past conversation format karein
-    formatted_history = []
-    for entry in history:
-        role = entry.get("role", "user")
-        parts = []
-        for p in entry.get("parts", []):
-            text_val = p.get("text", "") if isinstance(p, dict) else str(p)
-            if text_val:
-                parts.append(types.Part.from_text(text=text_val))
-        if parts:
-            formatted_history.append(types.Content(role=role, parts=parts))
+    messages = [{"role": "system", "content": system_prompt}]
     
-    config_obj = types.GenerateContentConfig(
-        system_instruction=system_prompt,
+    # History format karein
+    for entry in history:
+        role = "assistant" if entry.get("role") in ["model", "assistant"] else "user"
+        content = ""
+        for p in entry.get("parts", []):
+            if isinstance(p, dict):
+                content += p.get("text", "")
+            else:
+                content += str(p)
+        if content:
+            messages.append({"role": role, "content": content})
+            
+    # Add new user message
+    messages.append({"role": "user", "content": new_message})
+    
+    chat_completion = client.chat.completions.create(
+        messages=messages,
+        model="llama-3.3-70b-versatile",
         temperature=0.8,
-        max_output_tokens=300
+        max_tokens=300
     )
-
-    last_err = None
-    for model_name in MODELS:
-        try:
-            # 2. Chat Session initialize karein
-            chat = client.chats.create(
-                model=model_name,
-                config=config_obj,
-                history=formatted_history
-            )
-            # 3. Message bhejein
-            response = chat.send_message(new_message)
-            if response and response.text:
-                return response.text.strip()
-        except Exception as e:
-            last_err = e
-            print(f"Chat failed on {model_name}: {e}")
-            continue
-
-    if last_err:
-        raise last_err
-    return "Hmph... mujhe samajh nahi aaya, baka!"
+    
+    return chat_completion.choices[0].message.content.strip()
 
 async def generate_gemini_reply(personality: str, history: list, new_message: str) -> str:
     try:
-        return await asyncio.to_thread(_generate_chat_reply_sync, personality, history, new_message)
+        return await asyncio.to_thread(_generate_groq_reply_sync, personality, history, new_message)
     except Exception as e:
-        print(f"Gemini Chat API Error: {e}")
+        print(f"Groq AI Error: {e}")
         return "Tch... Kuch error aa gaya. Thodi der baad try karo!"

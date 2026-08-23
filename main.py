@@ -1,17 +1,23 @@
+import os
+import sys
+import logging
 import threading
 from flask import Flask
 from pyrogram import Client
 import config
 
-# --- Flask Keep-Alive Server ---
+# Werkzeug/Flask request logs minimize karein
+logging.getLogger("werkzeug").setLevel(logging.ERROR)
+
 flask_app = Flask(__name__)
 
 @flask_app.route("/")
-def health():
-    return "Gourav AI Bot is Active & Running!", 200
+def health_check():
+    return "Gourav AI Bot is Active and Healthy on Render!", 200
 
 def run_flask():
-    flask_app.run(host="0.0.0.0", port=config.PORT)
+    # 0.0.0.0 pe bind hona Render ke liye mandatory hai
+    flask_app.run(host="0.0.0.0", port=config.PORT, debug=False, use_reloader=False)
 
 # --- Pyrogram Client ---
 bot = Client(
@@ -23,9 +29,15 @@ bot = Client(
 )
 
 if __name__ == "__main__":
-    # Background Flask thread for Koyeb / Render / Railway
-    server_thread = threading.Thread(target=run_flask, daemon=True)
-    server_thread.start()
-    
+    if not config.BOT_TOKEN or not config.GEMINI_API_KEY:
+        print("ERROR: BOT_TOKEN or GEMINI_API_KEY is missing in Environment Variables!")
+        sys.exit(1)
+
+    # 1. Flask Health Server start karein (Daemon thread me)
+    web_thread = threading.Thread(target=run_flask, daemon=True)
+    web_thread.start()
+    print(f"HTTP Server started on port {config.PORT} for Render Health Checks.")
+
+    # 2. Pyrogram Bot run karein
     print("Starting Gourav AI Bot...")
     bot.run()

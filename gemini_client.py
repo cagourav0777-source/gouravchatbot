@@ -1,8 +1,10 @@
-import google.generativeai as genai
+import asyncio
+from google import genai
+from google.genai import types
 import config
 
-# Gemini configure karein
-genai.configure(api_key=config.GEMINI_API_KEY)
+# Naya Google GenAI Client initialize karein
+client = genai.Client(api_key=config.GEMINI_API_KEY)
 
 PERSONALITY_PROMPTS = {
     "baka": (
@@ -23,39 +25,56 @@ PERSONALITY_PROMPTS = {
     ),
 }
 
-async def generate_gemini_reply(personality: str, history: list, new_message: str) -> str:
+def _generate_chat_response(personality: str, history: list, new_message: str) -> str:
     system_prompt = PERSONALITY_PROMPTS.get(personality, PERSONALITY_PROMPTS["baka"])
     
-    try:
-        # Generative Model initialize karein
-        model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=system_prompt,
-            generation_config={
-                "temperature": 0.8,
-                "max_output_tokens": 300
-            }
-        )
-        
-        # History format karein
-        formatted_contents = []
-        for entry in history:
-            role = "user" if entry.get("role") == "user" else "model"
-            parts = [p.get("text", "") for p in entry.get("parts", []) if "text" in p]
-            if parts:
-                formatted_contents.append({"role": role, "parts": parts})
-        
-        # Naya message add karein
-        formatted_contents.append({"role": "user", "parts": [new_message]})
-        
-        # Async response generate karein
-        response = await model.generate_content_async(formatted_contents)
-        
-        if response and response.text:
-            return response.text.strip()
-        else:
-            return "Hmph... mujhe samajh nahi aaya, baka!"
+    # History format karein
+    formatted_history = []
+    for entry in history:
+        role = entry.get("role", "user")
+        parts_list = []
+        for p in entry.get("parts", []):
+            text_val = p.get("text", "") if isinstance(p, dict) else str(p)
+            if text_val:
+                parts_list.append(types.Part.from_text(text=text_val))
+        if parts_list:
+            formatted_history.append(types.Content(role=role, parts=parts_list))
             
+    # Google GenAI Chat Session start karein
+    chat = client.chats.create(
+        model="gemini-2.5-flash",
+        config=types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            temperature=0.8,
+            max_output_tokens=300
+        ),
+        history=formatted_history
+    )
+    
+    response = chat.send_message(new_message)
+    return response.text.strip() if response.text else "Hmph... mujhe samajh nahi aaya, baka!"
+
+async def generate_gemini_reply(personality: str, history: list, new_message: str) -> str:
+    try:
+        # Non-blocking async execution
+        return await asyncio.to_thread(_generate_chat_response, personality, history, new_message)
     except Exception as e:
-        print(f"Gemini API Error: {e}")
-        return "Tch... Kuch error aa gaya. Thodi der baad try karo!"
+        print(f"Primary Gemini API Error: {e}")
+        # Fallback to gemini-1.5-flash if needed
+        try:
+            def _fallback():
+                system_prompt = PERSONALITY_PROMPTS.get(personality, PERSONALITY_PROMPTS["baka"])
+                chat = client.chats.create(
+                    model="gemini-1.5-flash",
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_prompt,
+                        temperature=0.8,
+                        max_output_tokens=300
+                    )
+                )
+                res = chat.send_message(new_message)
+                return res.text.strip()
+            return await asyncio.to_thread(_fallback)
+        except Exception as err:
+            print(f"Gemini Fallback Error: {err}")
+            return "Tch... Kuch error aa gaya. Thodi der baad try karo!"

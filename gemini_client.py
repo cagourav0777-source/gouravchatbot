@@ -25,14 +25,14 @@ PERSONALITY_PROMPTS = {
     ),
 }
 
-# Current Active Gemini Models
-MODELS_TO_TRY = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"]
+# Current Active Models
+MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"]
 
-def _generate_response_sync(personality: str, history: list, new_message: str) -> str:
+def _generate_chat_reply_sync(personality: str, history: list, new_message: str) -> str:
     system_prompt = PERSONALITY_PROMPTS.get(personality, PERSONALITY_PROMPTS["baka"])
     
-    # History format karein
-    formatted_contents = []
+    # 1. Past history format karein
+    formatted_history = []
     for entry in history:
         role = entry.get("role", "user")
         parts = []
@@ -41,42 +41,39 @@ def _generate_response_sync(personality: str, history: list, new_message: str) -
             if text_val:
                 parts.append(types.Part.from_text(text=text_val))
         if parts:
-            formatted_contents.append(types.Content(role=role, parts=parts))
-            
-    # Latest user message add karein
-    formatted_contents.append(
-        types.Content(role="user", parts=[types.Part.from_text(text=new_message)])
-    )
+            formatted_history.append(types.Content(role=role, parts=parts))
     
     config_obj = types.GenerateContentConfig(
         system_instruction=system_prompt,
         temperature=0.8,
         max_output_tokens=300
     )
-    
-    # Available models try karein
-    last_error = None
-    for model_name in MODELS_TO_TRY:
+
+    last_err = None
+    for model_name in MODELS:
         try:
-            response = client.models.generate_content(
+            # 2. Official Chat session banayein
+            chat = client.chats.create(
                 model=model_name,
-                contents=formatted_contents,
-                config=config_obj
+                config=config_obj,
+                history=formatted_history
             )
+            # 3. Chat ke through send_message call karein (No AFC conflict)
+            response = chat.send_message(new_message)
             if response and response.text:
                 return response.text.strip()
         except Exception as e:
-            last_error = e
-            print(f"Model {model_name} failed: {e}. Trying next model...")
+            last_err = e
+            print(f"Chat failed on {model_name}: {e}")
             continue
-            
-    if last_error:
-        raise last_error
+
+    if last_err:
+        raise last_err
     return "Hmph... mujhe samajh nahi aaya, baka!"
 
 async def generate_gemini_reply(personality: str, history: list, new_message: str) -> str:
     try:
-        return await asyncio.to_thread(_generate_response_sync, personality, history, new_message)
+        return await asyncio.to_thread(_generate_chat_reply_sync, personality, history, new_message)
     except Exception as e:
-        print(f"Gemini API All Models Error: {e}")
+        print(f"Gemini Chat API Error: {e}")
         return "Tch... Kuch error aa gaya. Thodi der baad try karo!"

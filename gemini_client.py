@@ -23,6 +23,14 @@ PERSONALITY_PROMPTS = {
     ),
 }
 
+# Groq Free Tier Models (Tried in order)
+GROQ_MODELS = [
+    "llama-3.1-8b-instant",
+    "llama3-8b-8192",
+    "gemma2-9b-it",
+    "mixtral-8x7b-32768"
+]
+
 def _generate_groq_reply_sync(personality: str, history: list, new_message: str) -> str:
     api_key = config.GROQ_API_KEY or os.environ.get("GROQ_API_KEY", "")
     if not api_key:
@@ -51,17 +59,27 @@ def _generate_groq_reply_sync(personality: str, history: list, new_message: str)
             if content.strip():
                 messages.append({"role": role, "content": content.strip()})
                 
-    # Add the current message
+    # Add current message
     messages.append({"role": "user", "content": new_message})
     
-    chat_completion = client.chat.completions.create(
-        messages=messages,
-        model="llama-3.3-70b-versatile",
-        temperature=0.8,
-        max_tokens=300
-    )
-    
-    return chat_completion.choices[0].message.content.strip()
+    last_err = None
+    for model_name in GROQ_MODELS:
+        try:
+            chat_completion = client.chat.completions.create(
+                messages=messages,
+                model=model_name,
+                temperature=0.8,
+                max_tokens=300
+            )
+            return chat_completion.choices[0].message.content.strip()
+        except Exception as e:
+            last_err = e
+            print(f"Groq Model '{model_name}' failed: {e}. Trying next fallback...")
+            continue
+            
+    if last_err:
+        raise last_err
+    return "Hmph... mujhe samajh nahi aaya, baka!"
 
 async def generate_gemini_reply(personality: str, history: list, new_message: str) -> str:
     try:

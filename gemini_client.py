@@ -1,9 +1,8 @@
+import os
 import asyncio
+import traceback
 from groq import Groq
 import config
-
-# Initialize Groq Client
-client = Groq(api_key=config.GROQ_API_KEY)
 
 PERSONALITY_PROMPTS = {
     "baka": (
@@ -25,23 +24,34 @@ PERSONALITY_PROMPTS = {
 }
 
 def _generate_groq_reply_sync(personality: str, history: list, new_message: str) -> str:
+    api_key = config.GROQ_API_KEY or os.environ.get("GROQ_API_KEY", "")
+    if not api_key:
+        raise ValueError("GROQ_API_KEY is not set in Environment Variables!")
+        
+    client = Groq(api_key=api_key)
     system_prompt = PERSONALITY_PROMPTS.get(personality, PERSONALITY_PROMPTS["baka"])
     
     messages = [{"role": "system", "content": system_prompt}]
     
-    # History format karein
-    for entry in history:
-        role = "assistant" if entry.get("role") in ["model", "assistant"] else "user"
-        content = ""
-        for p in entry.get("parts", []):
-            if isinstance(p, dict):
-                content += p.get("text", "")
-            else:
-                content += str(p)
-        if content:
-            messages.append({"role": role, "content": content})
-            
-    # Add new user message
+    # Safely parse history
+    if history and isinstance(history, list):
+        for entry in history:
+            role = "assistant" if entry.get("role") in ["model", "assistant"] else "user"
+            content = ""
+            parts = entry.get("parts", [])
+            if isinstance(parts, list):
+                for p in parts:
+                    if isinstance(p, dict):
+                        content += p.get("text", "")
+                    else:
+                        content += str(p)
+            elif isinstance(parts, str):
+                content = parts
+                
+            if content.strip():
+                messages.append({"role": role, "content": content.strip()})
+                
+    # Add the current message
     messages.append({"role": "user", "content": new_message})
     
     chat_completion = client.chat.completions.create(
@@ -57,5 +67,6 @@ async def generate_gemini_reply(personality: str, history: list, new_message: st
     try:
         return await asyncio.to_thread(_generate_groq_reply_sync, personality, history, new_message)
     except Exception as e:
-        print(f"Groq AI Error: {e}")
+        print(f"--- Groq AI Error Details ---")
+        traceback.print_exc()
         return "Tch... Kuch error aa gaya. Thodi der baad try karo!"

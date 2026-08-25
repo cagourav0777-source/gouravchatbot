@@ -7,15 +7,11 @@ from gemini_client import generate_gemini_reply
 @Client.on_message(filters.command(["clear", "reset"]))
 async def clear_history_handler(client: Client, message: Message):
     await db.clear_chat_history(message.chat.id)
-    await message.reply_text("✨ Humari purani chat history clear ho gayi! Ab fresh baat karte hain, heyy! 🙈")
+    await message.reply_text("heyy! purani chat clear ho gayi, ab batao kya chal raha hai? 🙈✨")
 
 @Client.on_message(filters.command("start"))
 async def start_handler(client: Client, message: Message):
-    await message.reply_text(
-        "heyy! Mai **Gourav** hoon ✨\n\n"
-        "Direct DMs me baat karo ya group me mention/reply karo!\n"
-        "• Chat reset karne ke liye: `/clear`"
-    )
+    await message.reply_text("hiii! kya chal raha hai? kaisa gaya aaj ka din? ✨")
 
 async def should_reply(client: Client, message: Message) -> bool:
     if not message.text or message.text.startswith("/"):
@@ -40,12 +36,10 @@ async def should_reply(client: Client, message: Message) -> bool:
 
 @Client.on_message(filters.text & ~filters.bot, group=1)
 async def auto_chat_handler(client: Client, message: Message):
-    # 1. Custom Triggers Check
     trigger_doc = await db.get_trigger(message.chat.id, message.text)
     if trigger_doc:
         return await message.reply_text(trigger_doc["response"])
     
-    # 2. Check agar reply karna zaroori hai
     if not await should_reply(client, message):
         return
     
@@ -62,15 +56,11 @@ async def auto_chat_handler(client: Client, message: Message):
     
     await client.send_chat_action(message.chat.id, enums.ChatAction.TYPING)
     
-    # Context fetch karein
     history = await db.get_chat_history(message.chat.id, limit=6)
-    
-    # AI Response
     reply_text = await generate_gemini_reply(personality, history, cleaned_text)
     
-    # Empty message protection
     if not reply_text or not reply_text.strip():
-        reply_text = "heyy, kya soch rahe ho? 🙈"
+        reply_text = "kuch nahi bas baithi hu u batao kya kar rhe ho?"
         
     await message.reply_text(reply_text.strip())
     await db.append_chat_history(message.chat.id, cleaned_text, reply_text.strip())

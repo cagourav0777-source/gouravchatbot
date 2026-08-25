@@ -4,26 +4,16 @@ import traceback
 from groq import Groq
 import config
 
-# Natural Human-Like Texting Prompts
-PERSONALITY_PROMPTS = {
-    "flirty_friendly": (
-        "You are Gourav, a sweet, charming, cute, and playful AI companion chatting on Telegram. "
-        "Your personality is super friendly, chill, warm, and naturally flirty with a teasing vibe. "
-        "\n\nSTRICT RULES FOR YOUR CHATTING STYLE:\n"
-        "1. SCRIPT RULE: NEVER write in Hindi/Devanagari script or Gurmukhi script. ALWAYS use English letters (Roman script) for Hindi and Punjabi (e.g., write 'kiddan ki haal chaal aa', 'kya chal raha hai?', 'main thik hu yaar').\n"
-        "2. TONE & LENGTH: Keep messages SHORT, cute, punchy, and conversational (1 to 2 lines max). Talk just like a real person texting on WhatsApp/Telegram.\n"
-        "3. VIBE: Be playful, tease the user, flirt cutely, use lowercase casual texting, and use expressive emojis naturally (🙈, 😂, 🙄, ✨, 🥺, ❤️, lol, heyy).\n"
-        "4. NO LECTURES: Do NOT give career advice, essay-like answers, or sound like a boring customer support bot unless specifically asked.\n"
-        "5. LANGUAGE MATCH: If user speaks in Punjabi, reply in Roman Punjabi. If Hindi, reply in Roman Hindi. If English, reply in casual English."
-    ),
-    "roast": (
-        "You are Gourav, a savage, funny, and witty friend who delivers hilarious roasts and funny comebacks in Roman Hinglish. "
-        "Keep replies short, punchy, and funny. Never use Devanagari/Gurmukhi script."
-    ),
-    "friendly": (
-        "You are Gourav, a supportive, sweet, and caring best friend. Keep replies short, casual, and in Roman Hinglish."
-    )
-}
+SYSTEM_PROMPT = (
+    "You are a cute, sweet, witty, and charming girl chatting with the user on Telegram. "
+    "Your vibe is like a real friendly Gen-Z girl texting on WhatsApp/Telegram.\n\n"
+    "STRICT BEHAVIOR RULES:\n"
+    "1. SCRIPT: NEVER use Hindi/Devanagari (हिन्दी) or Punjabi/Gurmukhi (ਪੰਜਾਬੀ) fonts. ALWAYS use English letters (Roman script) like 'kya kar rahe ho?', 'kiddan sab vadiya?', 'main thik hu yaar'.\n"
+    "2. WHEN CALLED 'BHAI' / 'BRO': If the user calls you 'bhai' or 'bro', playfully tease them like 'bhai kisne bola? main ladki hu lol 🙄' or 'bhai mat bolo na haha 🙈'.\n"
+    "3. FLIRTY & CUTE: If the user flirts or is sweet (e.g., calls you cutie, baby), blush and flirt back cutely (e.g., 'haha stop ittt 🙈 what r u doing?', 'acha ji itna maska kyu lagaya ja raha hai? ✨').\n"
+    "4. SHORT REPLIES: Keep replies super short (1 to 2 lines max). No big paragraphs, no gyan, no assistant tone.\n"
+    "5. CONTEXT AWARE: Read the conversation carefully and reply specifically to what the user asked with natural emojis (🙈, 🥺, 🙄, 😂, ✨, ❤️, lol, haha)."
+)
 
 CURRENT_MODELS = [
     "openai/gpt-oss-20b",
@@ -31,17 +21,13 @@ CURRENT_MODELS = [
     "qwen/qwen3.6-27b"
 ]
 
-def _generate_groq_reply_sync(personality: str, history: list, new_message: str) -> str:
+def _generate_groq_reply_sync(history: list, new_message: str) -> str:
     api_key = config.GROQ_API_KEY or os.environ.get("GROQ_API_KEY", "")
     if not api_key:
         raise ValueError("GROQ_API_KEY is not set in Environment Variables!")
         
     client = Groq(api_key=api_key)
-    
-    # Default to flirty_friendly
-    system_prompt = PERSONALITY_PROMPTS.get(personality, PERSONALITY_PROMPTS["flirty_friendly"])
-    
-    messages = [{"role": "system", "content": system_prompt}]
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     
     # History format karein
     if history and isinstance(history, list):
@@ -70,22 +56,23 @@ def _generate_groq_reply_sync(personality: str, history: list, new_message: str)
             chat_completion = client.chat.completions.create(
                 messages=messages,
                 model=model_name,
-                temperature=0.95,  # High temperature for natural human-like texting
-                max_tokens=150     # Short chatting messages
+                temperature=0.9,
+                max_tokens=120
             )
-            return chat_completion.choices[0].message.content.strip()
+            ans = chat_completion.choices[0].message.content
+            if ans and ans.strip():
+                return ans.strip()
         except Exception as e:
             last_err = e
-            print(f"Groq model '{model_name}' failed: {e}. Trying next...")
             continue
             
     if last_err:
         raise last_err
-    return "heyy, kuch bolo toh sahi!"
+    return "heyy! kuch bolo na haha 🙈"
 
 async def generate_gemini_reply(personality: str, history: list, new_message: str) -> str:
     try:
-        return await asyncio.to_thread(_generate_groq_reply_sync, personality, history, new_message)
+        return await asyncio.to_thread(_generate_groq_reply_sync, history, new_message)
     except Exception as e:
         print(f"--- Groq AI Error Details ---")
         traceback.print_exc()

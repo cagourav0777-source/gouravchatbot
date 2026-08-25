@@ -105,7 +105,6 @@ async def rob_handler(client: Client, message: Message):
     if victim.get("is_dead"):
         return await message.reply_text(f"💀 **{victim_user.first_name}** is already dead!")
         
-    # Protection check
     now = datetime.now(timezone.utc)
     prot = victim.get("protection_until")
     if prot:
@@ -114,7 +113,6 @@ async def rob_handler(client: Client, message: Message):
         if prot > now:
             return await message.reply_text(f"🛡️ **{victim_user.first_name}** has active protection shield! You failed.")
             
-    # Cooldown check
     last_rob = robber.get("last_rob")
     if last_rob:
         if last_rob.tzinfo is None:
@@ -123,7 +121,6 @@ async def rob_handler(client: Client, message: Message):
             rem = timedelta(minutes=10) - (now - last_rob)
             return await message.reply_text(f"⏳ Wait **{int(rem.total_seconds()) // 60}m** before robbing again.")
             
-    # Amount calculation
     args = message.text.split()
     amount = 5000
     if len(args) > 1 and args.isdigit():
@@ -134,7 +131,7 @@ async def rob_handler(client: Client, message: Message):
         return await message.reply_text(f"💸 **{victim_user.first_name}** is broke! Not worth robbing.")
         
     stolen = min(amount, victim.get("balance", 0))
-    success = random.random() < 0.65 # 65% success rate
+    success = random.random() < 0.65
     
     if success:
         xp_gain = random.randint(10, 50)
@@ -222,7 +219,7 @@ async def revive_handler(client: Client, message: Message):
     user = await db.get_user_eco(target.id, target.first_name)
     
     if not user.get("is_dead"):
-        return await message.reply_text(f"❤️ **{target.first_name}** is already alive and kicking!")
+        return await message.reply_text(f"❤️ **{target.first_name}** is already alive!")
         
     cost = 1000
     payer = await db.get_user_eco(message.from_user.id, message.from_user.first_name)
@@ -234,14 +231,14 @@ async def revive_handler(client: Client, message: Message):
     
     await message.reply_text(f"💉 **Revived!** **{target.first_name}** has been brought back to life for **${cost}**.")
 
-# --- 7. /protect 1d ---
+# --- 7. /protect (Updated to $500) ---
 @Client.on_message(filters.command("protect"))
 async def protect_handler(client: Client, message: Message):
-    cost = 3000
+    cost = 500  # Price set to $500
     user = await db.get_user_eco(message.from_user.id, message.from_user.first_name)
     
     if user.get("balance", 0) < cost:
-        return await message.reply_text(f"🛡️ **1-Day Protection Shield** costs **${cost:,}**. You need more cash!")
+        return await message.reply_text(f"🛡️ **1-Day Protection Shield** costs **${cost}**. You need more cash!")
         
     now = datetime.now(timezone.utc)
     until = now + timedelta(days=1)
@@ -250,9 +247,9 @@ async def protect_handler(client: Client, message: Message):
         "$inc": {"balance": -cost},
         "$set": {"protection_until": until}
     })
-    await message.reply_text(f"🛡️ **Shield Activated!** You are immune to all robs for the next **24 Hours**.")
+    await message.reply_text(f"🛡️ **Shield Activated!** You are immune to all robs for the next **24 Hours** for **${cost}**.")
 
-# --- 8. /give <amount> (Reply required) ---
+# --- 8. /give <amount> ---
 @Client.on_message(filters.command("give"))
 async def give_handler(client: Client, message: Message):
     if not message.reply_to_message:
@@ -277,7 +274,7 @@ async def give_handler(client: Client, message: Message):
     if sender.get("balance", 0) < amount:
         return await message.reply_text("💸 Insufficient funds!")
         
-    tax = int(amount * 0.05) # 5% tax
+    tax = int(amount * 0.05)
     transferred = amount - tax
     
     await db.update_user_eco(message.from_user.id, {"$inc": {"balance": -amount}})

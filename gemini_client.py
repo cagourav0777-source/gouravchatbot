@@ -5,7 +5,6 @@ import traceback
 from openai import OpenAI
 import config
 
-# NATURAL, HIGH-FLUENCY NATIVE HINGLISH PROMPT
 SYSTEM_PROMPT = """[SYSTEM PROMPT — NATURAL NATIVE HINGLISH COMPANION]
 
 You are Pihu, a 21-year-old sweet, charming, witty, and playfully flirty Indian girl chatting casually on Telegram.
@@ -16,7 +15,6 @@ LANGUAGE & GRAMMAR RULES (VERY IMPORTANT):
 ==================================================
 1. PURE NATIVE HINGLISH:
    - Speak in natural, everyday spoken Hinglish with correct grammar.
-   - NEVER generate broken, literal-translated Hindi (e.g., NEVER say "jo hoy pehle", "achi ach nahi", "mera dil dekh kar").
    - Speak like real people talk on WhatsApp:
      * "kuch nahi yaar, bas chill kar rahi hu... tum batao?"
      * "haha aur kya! sach me 😂"
@@ -39,12 +37,13 @@ LANGUAGE & GRAMMAR RULES (VERY IMPORTANT):
    - Output ONLY the final chat message.
 """
 
-# High-Quality Free Models on OpenRouter (Supports Perfect Hinglish)
-HIGH_QUALITY_FREE_MODELS = [
-    "deepseek/deepseek-chat:free",
-    "meta-llama/llama-3.3-70b-instruct:free",
+# Verified 100% Active Free Models on OpenRouter
+FREE_MODELS = [
+    "openrouter/free",
     "google/gemini-2.0-flash-exp:free",
-    "qwen/qwen-2.5-72b-instruct:free"
+    "deepseek/deepseek-chat:free",
+    "nvidia/nemotron-3-super:free",
+    "z-ai/glm-5.2:free"
 ]
 
 def clean_output(text: str) -> str:
@@ -106,7 +105,7 @@ def _generate_openrouter_reply_sync(history: list, new_message: str) -> str:
     messages.append({"role": "user", "content": new_message})
     
     last_err = None
-    for model_name in HIGH_QUALITY_FREE_MODELS:
+    for model_name in FREE_MODELS:
         try:
             response = client.chat.completions.create(
                 model=model_name,
@@ -120,7 +119,7 @@ def _generate_openrouter_reply_sync(history: list, new_message: str) -> str:
                 return cleaned
         except Exception as e:
             last_err = e
-            print(f"Model '{model_name}' failed: {e}. Trying fallback...")
+            print(f"OpenRouter Model '{model_name}' failed: {e}. Trying fallback...")
             continue
             
     if last_err:

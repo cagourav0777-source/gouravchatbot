@@ -1,9 +1,11 @@
 import os
 import sys
+import time
 import logging
 import threading
 from flask import Flask
 from pyrogram import Client
+from pyrogram.errors import FloodWait
 import config
 
 # Flask logs minimize karein
@@ -18,7 +20,7 @@ def health_check():
 def run_flask():
     flask_app.run(host="0.0.0.0", port=config.PORT, debug=False, use_reloader=False)
 
-# --- Pyrogram Client ---
+# Pyrogram Client
 bot = Client(
     "gourav_bot_session",
     api_id=config.API_ID,
@@ -28,16 +30,24 @@ bot = Client(
 )
 
 if __name__ == "__main__":
-    # Check required environment variables
     if not config.BOT_TOKEN or not config.GROQ_API_KEY:
         print("ERROR: BOT_TOKEN or GROQ_API_KEY is missing in Environment Variables!")
         sys.exit(1)
 
-    # 1. Flask Health Server start karein
+    # 1. Flask Web Server start karein
     web_thread = threading.Thread(target=run_flask, daemon=True)
     web_thread.start()
     print(f"HTTP Server started on port {config.PORT} for Render Health Checks.")
 
-    # 2. Pyrogram Bot run karein
+    # 2. Pyrogram Bot with FloodWait Protection
     print("Starting Gourav AI Bot...")
-    bot.run()
+    while True:
+        try:
+            bot.run()
+            break
+        except FloodWait as e:
+            print(f"Telegram FloodWait: Sleeping for {e.value} seconds...")
+            time.sleep(e.value + 5)
+        except Exception as e:
+            print(f"Bot execution error: {e}")
+            time.sleep(10)

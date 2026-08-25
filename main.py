@@ -28,15 +28,16 @@ bot = Client(
 )
 
 if __name__ == "__main__":
-    if not config.BOT_TOKEN or not config.OPENROUTER_API_KEY:
-        print("ERROR: BOT_TOKEN or OPENROUTER_API_KEY is missing in Environment Variables!")
+    # Check Bot Token and GitHub Token
+    if not config.BOT_TOKEN or not config.GITHUB_TOKEN:
+        print("ERROR: BOT_TOKEN or GITHUB_TOKEN is missing in Environment Variables!")
         sys.exit(1)
 
     web_thread = threading.Thread(target=run_flask, daemon=True)
     web_thread.start()
     print(f"HTTP Server started on port {config.PORT} for Render Health Checks.")
 
-    print("Starting Pihu AI Bot (OpenRouter Free Engine)...")
+    print("Starting Pihu AI Bot (GitHub GPT-4o-mini Engine)...")
     while True:
         try:
             bot.run()

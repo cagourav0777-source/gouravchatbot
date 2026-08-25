@@ -10,10 +10,7 @@ triggers_collection = db["triggers"]
 history_collection = db["history"]
 economy_collection = db["economy"]
 
-# ==============================================================================
-#                             CHAT SETTINGS
-# ==============================================================================
-
+# --- Chat Settings ---
 async def get_chat_settings(chat_id: int) -> dict:
     try:
         chat = await chats_collection.find_one({"chat_id": chat_id})
@@ -27,19 +24,16 @@ async def get_chat_settings(chat_id: int) -> dict:
             return default_settings
         return chat
     except Exception as e:
-        print(f"DB Error (get_chat_settings): {e}")
+        print(f"DB Error: {e}")
         return {"chat_id": chat_id, "is_enabled": True, "personality": "flirty_friendly"}
 
 async def update_chat_settings(chat_id: int, updates: dict):
     try:
         await chats_collection.update_one({"chat_id": chat_id}, {"$set": updates}, upsert=True)
     except Exception as e:
-        print(f"DB Error (update_chat_settings): {e}")
+        print(f"DB Error: {e}")
 
-# ==============================================================================
-#                             CUSTOM TRIGGERS (/teach)
-# ==============================================================================
-
+# --- Triggers ---
 async def add_trigger(chat_id: int, trigger: str, response: str, added_by: int):
     try:
         await triggers_collection.update_one(
@@ -48,7 +42,7 @@ async def add_trigger(chat_id: int, trigger: str, response: str, added_by: int):
             upsert=True
         )
     except Exception as e:
-        print(f"DB Error (add_trigger): {e}")
+        print(f"DB Error: {e}")
 
 async def get_trigger(chat_id: int, trigger: str):
     try:
@@ -70,10 +64,7 @@ async def list_triggers(chat_id: int):
     except Exception as e:
         return []
 
-# ==============================================================================
-#                     CHAT MEMORY (2-MINUTE AUTO-FORGET)
-# ==============================================================================
-
+# --- 2-Minute Auto-Forget Memory ---
 async def get_chat_history(chat_id: int, limit: int = 6) -> list:
     try:
         doc = await history_collection.find_one({"chat_id": chat_id})
@@ -85,7 +76,6 @@ async def get_chat_history(chat_id: int, limit: int = 6) -> list:
             if last_updated.tzinfo is None:
                 last_updated = last_updated.replace(tzinfo=timezone.utc)
             now = datetime.now(timezone.utc)
-            # 2 minute se purani chat ho toh automatically bhool jao
             if now - last_updated > timedelta(minutes=2):
                 await history_collection.delete_one({"chat_id": chat_id})
                 return []
@@ -114,18 +104,15 @@ async def append_chat_history(chat_id: int, user_text: str, bot_text: str):
             upsert=True
         )
     except Exception as e:
-        print(f"DB Error (append_chat_history): {e}")
+        print(f"History Append Error: {e}")
 
 async def clear_chat_history(chat_id: int):
     try:
         await history_collection.delete_one({"chat_id": chat_id})
     except Exception as e:
-        print(f"DB Error (clear_chat_history): {e}")
+        print(f"History Clear Error: {e}")
 
-# ==============================================================================
-#                     ECONOMY & RPG SYSTEM ($10k Starting Bonus)
-# ==============================================================================
-
+# --- Economy DB Helpers ---
 async def get_user_eco(user_id: int, name: str = "Player") -> dict:
     try:
         user = await economy_collection.find_one({"user_id": user_id})
@@ -133,8 +120,9 @@ async def get_user_eco(user_id: int, name: str = "Player") -> dict:
             new_user = {
                 "user_id": user_id,
                 "name": name,
-                "balance": 10000,  # First time joining par $10,000 bonus
-                "xp": 50,
+                "balance": 1000,
+                "xp": 0,
+                "has_claimed_welcome": False,
                 "is_dead": False,
                 "protection_until": None,
                 "last_daily": None,
@@ -150,12 +138,13 @@ async def get_user_eco(user_id: int, name: str = "Player") -> dict:
             await economy_collection.update_one({"user_id": user_id}, {"$set": {"name": name}})
         return user
     except Exception as e:
-        print(f"DB Error (get_user_eco): {e}")
+        print(f"DB Error: {e}")
         return {
             "user_id": user_id,
             "name": name,
-            "balance": 10000,
-            "xp": 50,
+            "balance": 1000,
+            "xp": 0,
+            "has_claimed_welcome": False,
             "is_dead": False,
             "kills": 0,
             "robs": 0,
@@ -166,14 +155,14 @@ async def update_user_eco(user_id: int, updates: dict):
     try:
         await economy_collection.update_one({"user_id": user_id}, updates, upsert=True)
     except Exception as e:
-        print(f"DB Error (update_user_eco): {e}")
+        print(f"DB Error: {e}")
 
 async def get_top_richest(limit: int = 10):
     try:
         cursor = economy_collection.find().sort("balance", -1).limit(limit)
         return await cursor.to_list(length=limit)
     except Exception as e:
-        print(f"DB Error (get_top_richest): {e}")
+        print(f"DB Error: {e}")
         return []
 
 async def get_top_killers(limit: int = 10):
@@ -181,5 +170,5 @@ async def get_top_killers(limit: int = 10):
         cursor = economy_collection.find().sort("kills", -1).limit(limit)
         return await cursor.to_list(length=limit)
     except Exception as e:
-        print(f"DB Error (get_top_killers): {e}")
+        print(f"DB Error: {e}")
         return []

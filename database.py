@@ -76,3 +76,6 @@ async def append_chat_history(chat_id: int, user_text: str, bot_text: str):
         },
         upsert=True
     )
+
+async def clear_chat_history(chat_id: int):
+    await history_collection.delete_one({"chat_id": chat_id})

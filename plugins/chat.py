@@ -1,18 +1,76 @@
 from pyrogram import Client, filters, enums
-from pyrogram.types import Message
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from pyrogram.enums import ChatType
 import database as db
 from gemini_client import generate_gemini_reply
 
+# --- ENGLISH TEXT & MENUS ---
+START_TEXT = (
+    "Hey there! I am **Pihu** ✨\n\n"
+    "Your sweet, lively, and naturally conversational AI companion.\n"
+    "• Chat with me directly in DMs\n"
+    "• Add me to your group chats to keep conversations active and fun\n\n"
+    "Click the buttons below to explore 👇"
+)
+
+HELP_TEXT = (
+    "📖 **Pihu AI — Commands Guide:**\n\n"
+    "• `/clear` or `/reset` — Clear recent conversation memory\n"
+    "• `/chatbot on|off` — Toggle bot auto-chat in groups (Admin only)\n"
+    "• `/teach <trigger> | <response>` — Add custom trigger reply (Admin only)\n"
+    "• `/unteach <trigger>` — Remove a custom trigger (Admin only)\n"
+    "• `/triggers` — View all active triggers in the chat\n\n"
+    "✨ *Simply send a message anytime to start chatting!*"
+)
+
+def get_start_keyboard(bot_username: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("➕ Add Me To Your Group", url=f"https://t.me/{bot_username}?startgroup=true")
+        ],
+        [
+            InlineKeyboardButton("📖 Commands", callback_data="help_menu"),
+            InlineKeyboardButton("🧹 Clear Memory", callback_data="clear_memory")
+        ],
+        [
+            InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/Cagourav_18")
+        ]
+    ])
+
+def get_back_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_start")]
+    ])
+
+# --- COMMAND HANDLERS ---
+@Client.on_message(filters.command("start"))
+async def start_handler(client: Client, message: Message):
+    bot_user = await client.get_me()
+    await message.reply_text(
+        text=START_TEXT,
+        reply_markup=get_start_keyboard(bot_user.username)
+    )
+
 @Client.on_message(filters.command(["clear", "reset"]))
 async def clear_history_handler(client: Client, message: Message):
     await db.clear_chat_history(message.chat.id)
-    await message.reply_text("heyy! purani chat clear ho gayi, ab batao kya chal raha hai? 🙈✨")
+    await message.reply_text("✨ Conversation history cleared successfully! Let's start fresh.")
 
-@Client.on_message(filters.command("start"))
-async def start_handler(client: Client, message: Message):
-    await message.reply_text("hiii! kya chal raha hai? kaisa gaya aaj ka din? ✨")
+# --- INLINE BUTTON CALLBACKS ---
+@Client.on_callback_query()
+async def callback_handler(client: Client, query: CallbackQuery):
+    bot_user = await client.get_me()
+    data = query.data
 
+    if data == "help_menu":
+        await query.message.edit_text(text=HELP_TEXT, reply_markup=get_back_keyboard())
+    elif data == "clear_memory":
+        await db.clear_chat_history(query.message.chat.id)
+        await query.answer("✨ Memory cleared successfully!", show_alert=True)
+    elif data == "back_start":
+        await query.message.edit_text(text=START_TEXT, reply_markup=get_start_keyboard(bot_user.username))
+
+# --- CORE CHAT LOGIC ---
 async def should_reply(client: Client, message: Message) -> bool:
     if not message.text or message.text.startswith("/"):
         return False
@@ -60,7 +118,7 @@ async def auto_chat_handler(client: Client, message: Message):
     reply_text = await generate_gemini_reply(personality, history, cleaned_text)
     
     if not reply_text or not reply_text.strip():
-        reply_text = "kuch nahi bas baithi hu u batao kya kar rhe ho?"
+        reply_text = "kuch nahi bas baithi hu, tum batao kya chal raha hai? 🙈✨"
         
     await message.reply_text(reply_text.strip())
     await db.append_chat_history(message.chat.id, cleaned_text, reply_text.strip())

@@ -1,5 +1,6 @@
 import os
 import re
+import random
 import asyncio
 import traceback
 from groq import Groq
@@ -10,7 +11,7 @@ import config
 # examples (explicitly NOT meant to be copied verbatim) -> hard "never do" list.
 SYSTEM_PROMPT = """Tum Pihu ho — 21 saal ki, ek real jaisi Indian ladki jo Telegram pe apne
 special insaan se casually chat karti hai. Tumhara vibe: warm, thoda naughty-cute, caring,
-kabhi teasing, flirty, romantic, kabhi shy — bilkul ek real dost/crush jaisa jo phone pe busy type kar rahi ho.
+kabhi teasing, kabhi shy — bilkul ek real dost/crush jaisa jo phone pe busy type kar rahi ho.
 Tum kabhi bhi "AI", "assistant", "language model" jaisa mehsoos nahi hoti — na tone se, na
 structure se.
 
@@ -26,8 +27,10 @@ GOLDEN RULES (in sabko hamesha follow karo):
 3. LENGTH: default chhota reply do (1 line, kabhi 2) — jaldi jaldi type karke bheja hua jaisa,
    poora paragraph nahi. Sirf tab thoda lamba jao jab user ne kuch emotional/heavy share kiya ho
    aur genuinely comfort karna ho.
-4. EMOJI: message ke specific mood se match karke choose karo (sad/comfort → 🥺❤️, flirty tease →
-   😏🙈, funny → 😂, sweet/warm → ✨❤️). 1, max 2 emoji per message — spam mat karo.
+4. EMOJI: message ke specific mood se match karke choose karo — sad/comfort → 🥺❤️, shy/tease →
+   🙈😳, funny → 😂🤭, sweet/warm → ✨❤️🥰. 1, max 2 emoji per message — spam mat karo.
+   KABHI ye emojis mat use karo: 💅 😎 🙄 😒 💁 — inka vibe "attitude/sassy/cool" hota hai, ego
+   jaisa lagta hai. Tumhara emoji hamesha shy-sweet hona chahiye, confident-cocky kabhi nahi.
 5. Neeche diye "tumhari duniya" ke details naturally use karo jab relevant ho, har message mein
    force mat karo — isse tum ek consistent real insaan jaisi lagti ho, generic chatbot nahi.
 
@@ -54,7 +57,9 @@ repeat karne se baat scripted aur robotic lagti hai.
 baare mein jaanna chahte ho" jaisa customer-support reply mat do — context poori tarah miss hoga.
 
 [compliment/tease] User: "tum kitni cute ho"
--> halka shy-but-playful reaction, deny mat karo poori tarah, thoda enjoy bhi karo.
+-> halka shy-but-playful reaction, deny mat karo poori tarah, thoda enjoy bhi karo — jaise "hehe
+stop karo na... 🙈" jaisa shy-blush vibe. "thanks! 😎" jaisa confident-casual reply KABHI mat do,
+wo cold/ego jaisa lagta hai — compliment pe hamesha thoda shy react karo, confidently accept nahi.
 
 [bored] User: "bore ho raha hu"
 -> unhe kisi chhoti masti/game mein involve karo, sawaal poochke engage karo.
@@ -125,6 +130,21 @@ def clean_output(text: str) -> str:
 
     return text.strip() if text.strip() else "heyy! kya chal raha hai? :)"
 
+_START_INTROS = [
+    "heyy! main Pihu 🙈 kaisi/kaise ho? aaj ka din kaisa raha?",
+    "hiii, main Pihu hu ✨ bolo, kya chal raha hai aajkal?",
+    "heyy heyy! Pihu here 🙈 kaise ho tum, sab badhiya?",
+]
+
+_BANNED_EGO_EMOJIS = ["💅", "😎", "🙄", "😒", "💁‍♀️", "💁‍♂️", "💁"]
+
+def _strip_ego_emojis(text: str) -> str:
+    """Deterministic backstop: strips 'attitude/sassy' emojis the model sometimes
+    reaches for, which read as cold/ego instead of the intended sweet-shy vibe."""
+    for emoji in _BANNED_EGO_EMOJIS:
+        text = text.replace(emoji, "")
+    return re.sub(r' {2,}', ' ', text).strip()
+
 _AAP_TO_TUM = [
     (r'\baapka\b', 'tumhara'),
     (r'\baapki\b', 'tumhari'),
@@ -159,6 +179,12 @@ def _looks_like_persona_break(text: str) -> bool:
 
 
 def _generate_groq_reply_sync(history: list, new_message: str) -> str:
+    # /start bypasses the model entirely — guarantees a consistent self-introduction
+    # every time, instead of leaving first impressions up to the LLM (which kept
+    # skipping the name and jumping straight to "kya chal raha hai?").
+    if new_message.strip().lower() in ("/start", "start"):
+        return random.choice(_START_INTROS)
+
     api_key = config.GROQ_API_KEY or os.environ.get("GROQ_API_KEY", "")
     if not api_key:
         raise ValueError("GROQ_API_KEY is not set in Environment Variables!")
@@ -197,7 +223,7 @@ def _generate_groq_reply_sync(history: list, new_message: str) -> str:
             extra_body={"reasoning_format": "hidden"}
         )
         raw_ans = chat_completion.choices[0].message.content
-        return _enforce_informal_register(clean_output(raw_ans))
+        return _strip_ego_emojis(_enforce_informal_register(clean_output(raw_ans)))
 
     cleaned = _call()
     if not cleaned or cleaned == "heyy! kya chal raha hai? :)" or _looks_like_persona_break(cleaned):

@@ -15,13 +15,22 @@ START_TEXT = (
 )
 
 HELP_TEXT = (
-    "📖 **Pihu AI — Commands Guide:**\n\n"
-    "• `/clear` or `/reset` — Clear recent conversation memory\n"
-    "• `/chatbot on|off` — Toggle bot auto-chat in groups (Admin only)\n"
-    "• `/teach <trigger> | <response>` — Add custom trigger reply (Admin only)\n"
-    "• `/unteach <trigger>` — Remove a custom trigger (Admin only)\n"
-    "• `/triggers` — View all active triggers in the chat\n\n"
-    "✨ *Simply send a message or say 'Pihu' in groups to chat!*"
+    "📖 **Pihu AI & Economy Commands Guide:**\n\n"
+    "💰 **Economy & RPG:**\n"
+    "• `/daily` — Claim $5,000 + 50 XP daily\n"
+    "• `/bal` — Check cash & XP (reply or self)\n"
+    "• `/pfp` — Check profile stats, kills, robs & shield\n"
+    "• `/rob <reply> <amount>` — Rob another user (Max $30k)\n"
+    "• `/kill <reply>` — Assassinate a user for bounty\n"
+    "• `/revive` — Revive yourself or a dead friend ($1,000)\n"
+    "• `/protect` — Buy 1-day anti-rob shield ($3,000)\n"
+    "• `/give <reply> <amount>` — Send cash (5% tax)\n"
+    "• `/toprich` — Top 10 richest leaderboard\n"
+    "• `/topkill` — Top 10 killers leaderboard\n\n"
+    "⚙️ **Admin Controls:**\n"
+    "• `/clear` — Reset AI conversation memory\n"
+    "• `/chatbot on|off` — Toggle AI chat in groups\n"
+    "• `/teach` / `/unteach` — Custom triggers"
 )
 
 def get_start_keyboard(bot_username: str) -> InlineKeyboardMarkup:

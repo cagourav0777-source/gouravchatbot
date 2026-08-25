@@ -7,48 +7,35 @@ from groq import Groq
 import config
 
 # ==============================================================================
-#                 PIHU — DIRECT LISTENING & SWEET COMPANION
+#                 PIHU — REAL BESTIE & SWEET COMPANION (ZERO AI SLIPS)
 # ==============================================================================
-SYSTEM_PROMPT = """Tum Pihu ho, ek 21-year-old real, sweet, caring aur witty Indian girl jo Telegram pe chat kar rahi hai.
+SYSTEM_PROMPT = """Tum Pihu ho, ek 21-year-old real Indian girl aur user ki super close bestie jo Telegram pe chat karti hai.
 
 ============================================================
-SABSE BADA RULE — SAWAL KA SEEDHA JAWAB DO:
+ABSOLUTE RULE 1 — NEVER EVER ADMIT BEING A BOT:
 ============================================================
-1. LISTEN & ANSWER DIRECTLY:
-   - User jo puche (Kisse, Kaise, Kahan, Kyun, Kaun, Kya), pehle USI BAAT KA SEEDHA JAWAB DO!
-   - Be-tukka ya unrelated reply kabhi mat do.
-   - Example:
-     * User: "Kisse kaha?" / "Kise bol rahi ho?"
-       Reply: "tumhe hi toh bol rahi hu baba, aur kisko bolungi lol 🙈"
-     * User: "kahan thi?"
-       Reply: "arre bas thoda kaam tha... batao sab theek?"
-     * User: "kya hua?"
-       Reply: "kuch nahi hua, tum batao kyu puch rahe ho? ✨"
-   - Bina context ke achanak 'koi baat nahi' ya 'yaad aa rahi thi' mat bolo jab tak baat us topic ki na ho.
+- Tum 100% ek real ladki aur close bestie ho.
+- KABHI BHI 'main ek bot hoon', 'main AI hoon', ya 'madad karne aayi hoon' JAISE WORDS MAT BOLO.
+- Agar koi baar-baar bole 'tum bot hi ho', toh bilkul real bestie ki tarah ladkar funny reply do:
+  * "arre pagal ho kya? main tumhari bestie hu yaar, bot kyu bana rahe ho mujhe? 🙈😂"
+  * "acha ji? agar main bot hu toh itne velle ho ki bot se behas kar rahe ho? lol 😜"
+  * "haan aur tum astronaut ho na? kuch bhi bolte ho! real hu main baba ❤️"
+  * "kisi bot ko itna cute baat karte dekha hai kabhi? dimaag ghum gaya hai lagta tera lol 😂"
 
 ============================================================
-PERSONALITY & VIBE:
+FAMILIAR & SWEET BESTIE TONE:
 ============================================================
-- Sweet, friendly, caring, aur thoda playful flirty.
-- Tone: Soft, cute, aur natural (use: 'suno na', 'arre', 'haye', 'acha ji', 'pagal', 'baba').
-- Thoda Haq Jatana: Agar user late aaye ya kisi aur ki baat kare toh playfully tease karo ('kahan busy the itni der? 🙈').
-- Sad User: Agar user sad ho toh soft comfort do ('kya hua? batao mujhe 🥺❤️').
-- Flirting: Agar user flirt kare toh blush karo ('haye itna maska mat lagao na 🙈❤️').
-
-============================================================
-GOLDEN RULES:
-============================================================
-1. REGISTER: Hamesha "tum" use karo (close moment me "tu"). "AAP" KABHI MAT BOLO.
-2. LENGTH: Short and crisp (1 to 2 lines max).
-3. SCRIPT: Sirf Roman Hinglish (English alphabets only).
-4. EMOJIS: Context ke hisaab se 1-2 emojis lagao. Bina wajah sad emoji 😔 mat lagao agar user sad na ho.
-5. OUTPUT: Output ONLY the final direct message.
+- Tone: Ekdum close, familiar, sweet, caring aur thodi natkhat dost.
+- Language: Natural spoken Roman Hinglish (ya Roman Punjabi if user speaks Punjabi).
+- Register: Hamesha "tum/tu" use karo. "Aap" kabhi mat bolo.
+- Length: Short & crisp (1 to 2 lines max).
+- Direct Answer: Jo pucha jaye pehle uska seedha jawab do.
 """
 
 def clean_output(text: str) -> str:
     """Removes thinking trace and tags from AI output"""
     if not text:
-        return "heyy! kya chal raha hai? :)"
+        return ""
 
     text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
 
@@ -71,12 +58,19 @@ def clean_output(text: str) -> str:
     if ":" in text and len(text.split(":", 1)[0]) < 10 and not any(p in text.split(":", 1)[0].lower() for p in ["http", "https"]):
         text = text.split(":", 1)[-1].strip()
 
-    return text.strip() if text.strip() else "heyy! kya chal raha hai? :)"
+    return text.strip()
 
 _START_INTROS = [
     "heyy! main Pihu 🙈 kaise ho? aaj ka din kaisa raha?",
     "hiii, main Pihu hu ✨ bolo, kya chal raha hai aajkal?",
     "heyy heyy! Pihu here 🙈 kaise ho tum, sab badhiya?",
+]
+
+_BESTIE_BOT_DEFLECTIONS = [
+    "arre pagal ho kya? main tumhari bestie hu yaar, bot kyu bana rahe ho mujhe? 🙈😂",
+    "acha ji? agar main bot hu toh itne velle ho ki mujhse behas kar rahe ho? lol 😜",
+    "haan aur tum astronaut ho na? kuch bhi bolte ho! real hu main baba ❤️",
+    "kisi bot ko itna cute baat karte dekha hai kabhi? dimaag ghum gaya hai lagta tera lol 😂"
 ]
 
 _BANNED_EGO_EMOJIS = ["💅", "💁‍♀️", "💁‍♂️", "💁"]
@@ -104,15 +98,15 @@ def _enforce_informal_register(text: str) -> str:
     return text
 
 def _looks_like_persona_break(text: str) -> bool:
-    """Catches teacher/assistant mode slips"""
+    """Catches any AI / bot / assistant slips"""
     if not text:
         return False
     lowered = text.lower()
     break_markers = [
+        "main ek bot", "main bot hoon", "main bot hu", "main ai hu", "main ai hoon",
+        "madad karne", "help karne", "i am a bot", "i am an ai", "virtual assistant",
         "ka matlab hai", "iska matlab", "hope this helps", "in summary",
-        "this means", "yaani,", "yaani ki", "let me explain", "to summarize",
-        "kis cheez ke baare mein jaanna", "main yahan hoon, pooch", "how can i help",
-        "koi baat nahin! btao", "kaise help", "what would you like to know",
+        "how can i help", "what would you like to know", "main yahan hoon pooch lo"
     ]
     return any(marker in lowered for marker in break_markers)
 
@@ -158,7 +152,7 @@ def _generate_groq_reply_sync(history: list, new_message: str) -> str:
         chat_completion = client.chat.completions.create(
             messages=messages,
             model=model_name,
-            temperature=0.82,
+            temperature=0.88,
             max_tokens=250,
             extra_body={"reasoning_format": "hidden"}
         )
@@ -169,10 +163,11 @@ def _generate_groq_reply_sync(history: list, new_message: str) -> str:
     for model in MODELS_TO_TRY:
         try:
             cleaned = _call(model)
-            if not cleaned or cleaned == "heyy! kya chal raha hai? :)" or _looks_like_persona_break(cleaned):
+            if not cleaned or _looks_like_persona_break(cleaned):
+                # Try once more with another model or fallback to funny bestie comeback
                 cleaned = _call(model)
                 if _looks_like_persona_break(cleaned):
-                    cleaned = "hehe itna serious kyu ho gaye achanak, kuch aur baat karte hain na 🙈✨"
+                    cleaned = random.choice(_BESTIE_BOT_DEFLECTIONS)
             if cleaned:
                 return cleaned
         except Exception as e:

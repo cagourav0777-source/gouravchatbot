@@ -1,3 +1,4 @@
+import re
 from pyrogram import Client, filters, enums
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from pyrogram.enums import ChatType
@@ -20,7 +21,7 @@ HELP_TEXT = (
     "• `/teach <trigger> | <response>` — Add custom trigger reply (Admin only)\n"
     "• `/unteach <trigger>` — Remove a custom trigger (Admin only)\n"
     "• `/triggers` — View all active triggers in the chat\n\n"
-    "✨ *Simply send a message anytime to start chatting!*"
+    "✨ *Simply send a message or say 'Pihu' in groups to chat!*"
 )
 
 def get_start_keyboard(bot_username: str) -> InlineKeyboardMarkup:
@@ -75,20 +76,29 @@ async def should_reply(client: Client, message: Message) -> bool:
     if not message.text or message.text.startswith("/"):
         return False
     
+    # 1. DMs me hamesha reply karega
     if message.chat.type == ChatType.PRIVATE:
         return True
     
+    # 2. Check agar group me chatbot enable hai
     settings = await db.get_chat_settings(message.chat.id)
     if not settings.get("is_enabled", True):
         return False
     
     bot_user = await client.get_me()
+    
+    # 3. Mention check (@BotUsername)
     if bot_user.username and f"@{bot_user.username.lower()}" in message.text.lower():
         return True
     
+    # 4. Reply to bot's message check
     if message.reply_to_message and message.reply_to_message.from_user:
         if message.reply_to_message.from_user.id == bot_user.id:
             return True
+            
+    # 5. "Pihu" / "Pihuu" name call check (Direct name bolne par reply karega)
+    if re.search(r'\bpihu+\b', message.text, re.IGNORECASE):
+        return True
             
     return False
 
@@ -118,7 +128,7 @@ async def auto_chat_handler(client: Client, message: Message):
     reply_text = await generate_gemini_reply(personality, history, cleaned_text)
     
     if not reply_text or not reply_text.strip():
-        reply_text = "kuch nahi bas baithi hu, tum batao kya chal raha hai? 🙈✨"
+        reply_text = "haan bol na, sun rahi hu ✨"
         
     await message.reply_text(reply_text.strip())
     await db.append_chat_history(message.chat.id, cleaned_text, reply_text.strip())

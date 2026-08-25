@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timedelta, timezone
 from motor.motor_asyncio import AsyncIOMotorClient
 import config
 
@@ -64,28 +64,41 @@ async def list_triggers(chat_id: int):
     except Exception as e:
         return []
 
-# --- History ---
+# --- 2-Minute Auto-Forget Memory ---
 async def get_chat_history(chat_id: int, limit: int = 6) -> list:
     try:
         doc = await history_collection.find_one({"chat_id": chat_id})
         if not doc or "messages" not in doc:
             return []
+            
+        last_updated = doc.get("last_updated")
+        if last_updated:
+            if last_updated.tzinfo is None:
+                last_updated = last_updated.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            # 2 minute se purani chat ho toh bhool jao (Auto-Forget)
+            if now - last_updated > timedelta(minutes=2):
+                await history_collection.delete_one({"chat_id": chat_id})
+                return []
+                
         return doc["messages"][-limit:]
     except Exception as e:
         return []
 
 async def append_chat_history(chat_id: int, user_text: str, bot_text: str):
     try:
+        now = datetime.now(timezone.utc)
         await history_collection.update_one(
             {"chat_id": chat_id},
             {
+                "$set": {"last_updated": now},
                 "$push": {
                     "messages": {
                         "$each": [
                             {"role": "user", "parts": [{"text": user_text}]},
                             {"role": "model", "parts": [{"text": bot_text}]}
                         ],
-                        "$slice": -10
+                        "$slice": -8
                     }
                 }
             },
@@ -100,10 +113,7 @@ async def clear_chat_history(chat_id: int):
     except Exception as e:
         print(f"History Clear Error: {e}")
 
-# ==============================================================================
-#                        ECONOMY & RPG SYSTEM DATABASE
-# ==============================================================================
-
+# --- Economy DB Helpers ---
 async def get_user_eco(user_id: int, name: str = "Player") -> dict:
     user = await economy_collection.find_one({"user_id": user_id})
     if not user:
@@ -123,7 +133,6 @@ async def get_user_eco(user_id: int, name: str = "Player") -> dict:
         }
         await economy_collection.insert_one(new_user)
         return new_user
-    # Update name if changed
     if user.get("name") != name:
         await economy_collection.update_one({"user_id": user_id}, {"$set": {"name": name}})
     return user

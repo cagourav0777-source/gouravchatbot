@@ -10,7 +10,10 @@ triggers_collection = db["triggers"]
 history_collection = db["history"]
 economy_collection = db["economy"]
 
-# --- Chat Settings ---
+# ==============================================================================
+#                             CHAT SETTINGS
+# ==============================================================================
+
 async def get_chat_settings(chat_id: int) -> dict:
     try:
         chat = await chats_collection.find_one({"chat_id": chat_id})
@@ -24,16 +27,19 @@ async def get_chat_settings(chat_id: int) -> dict:
             return default_settings
         return chat
     except Exception as e:
-        print(f"DB Error: {e}")
+        print(f"DB Error (get_chat_settings): {e}")
         return {"chat_id": chat_id, "is_enabled": True, "personality": "flirty_friendly"}
 
 async def update_chat_settings(chat_id: int, updates: dict):
     try:
         await chats_collection.update_one({"chat_id": chat_id}, {"$set": updates}, upsert=True)
     except Exception as e:
-        print(f"DB Error: {e}")
+        print(f"DB Error (update_chat_settings): {e}")
 
-# --- Triggers ---
+# ==============================================================================
+#                             CUSTOM TRIGGERS (/teach)
+# ==============================================================================
+
 async def add_trigger(chat_id: int, trigger: str, response: str, added_by: int):
     try:
         await triggers_collection.update_one(
@@ -42,7 +48,7 @@ async def add_trigger(chat_id: int, trigger: str, response: str, added_by: int):
             upsert=True
         )
     except Exception as e:
-        print(f"DB Error: {e}")
+        print(f"DB Error (add_trigger): {e}")
 
 async def get_trigger(chat_id: int, trigger: str):
     try:
@@ -64,7 +70,10 @@ async def list_triggers(chat_id: int):
     except Exception as e:
         return []
 
-# --- 2-Minute Auto-Forget Memory ---
+# ==============================================================================
+#                     CHAT MEMORY (2-MINUTE AUTO-FORGET)
+# ==============================================================================
+
 async def get_chat_history(chat_id: int, limit: int = 6) -> list:
     try:
         doc = await history_collection.find_one({"chat_id": chat_id})
@@ -76,7 +85,7 @@ async def get_chat_history(chat_id: int, limit: int = 6) -> list:
             if last_updated.tzinfo is None:
                 last_updated = last_updated.replace(tzinfo=timezone.utc)
             now = datetime.now(timezone.utc)
-            # 2 minute se purani chat ho toh bhool jao (Auto-Forget)
+            # 2 minute se purani chat ho toh automatically bhool jao
             if now - last_updated > timedelta(minutes=2):
                 await history_collection.delete_one({"chat_id": chat_id})
                 return []
@@ -105,45 +114,72 @@ async def append_chat_history(chat_id: int, user_text: str, bot_text: str):
             upsert=True
         )
     except Exception as e:
-        print(f"History Append Error: {e}")
+        print(f"DB Error (append_chat_history): {e}")
 
 async def clear_chat_history(chat_id: int):
     try:
         await history_collection.delete_one({"chat_id": chat_id})
     except Exception as e:
-        print(f"History Clear Error: {e}")
+        print(f"DB Error (clear_chat_history): {e}")
 
-# --- Economy DB Helpers ---
+# ==============================================================================
+#                     ECONOMY & RPG SYSTEM ($10k Starting Bonus)
+# ==============================================================================
+
 async def get_user_eco(user_id: int, name: str = "Player") -> dict:
-    user = await economy_collection.find_one({"user_id": user_id})
-    if not user:
-        new_user = {
+    try:
+        user = await economy_collection.find_one({"user_id": user_id})
+        if not user:
+            new_user = {
+                "user_id": user_id,
+                "name": name,
+                "balance": 10000,  # First time joining par $10,000 bonus
+                "xp": 50,
+                "is_dead": False,
+                "protection_until": None,
+                "last_daily": None,
+                "last_rob": None,
+                "last_kill": None,
+                "kills": 0,
+                "robs": 0,
+                "deaths": 0
+            }
+            await economy_collection.insert_one(new_user)
+            return new_user
+        if user.get("name") != name:
+            await economy_collection.update_one({"user_id": user_id}, {"$set": {"name": name}})
+        return user
+    except Exception as e:
+        print(f"DB Error (get_user_eco): {e}")
+        return {
             "user_id": user_id,
             "name": name,
-            "balance": 1000,
-            "xp": 0,
+            "balance": 10000,
+            "xp": 50,
             "is_dead": False,
-            "protection_until": None,
-            "last_daily": None,
-            "last_rob": None,
-            "last_kill": None,
             "kills": 0,
             "robs": 0,
             "deaths": 0
         }
-        await economy_collection.insert_one(new_user)
-        return new_user
-    if user.get("name") != name:
-        await economy_collection.update_one({"user_id": user_id}, {"$set": {"name": name}})
-    return user
 
 async def update_user_eco(user_id: int, updates: dict):
-    await economy_collection.update_one({"user_id": user_id}, updates, upsert=True)
+    try:
+        await economy_collection.update_one({"user_id": user_id}, updates, upsert=True)
+    except Exception as e:
+        print(f"DB Error (update_user_eco): {e}")
 
 async def get_top_richest(limit: int = 10):
-    cursor = economy_collection.find().sort("balance", -1).limit(limit)
-    return await cursor.to_list(length=limit)
+    try:
+        cursor = economy_collection.find().sort("balance", -1).limit(limit)
+        return await cursor.to_list(length=limit)
+    except Exception as e:
+        print(f"DB Error (get_top_richest): {e}")
+        return []
 
 async def get_top_killers(limit: int = 10):
-    cursor = economy_collection.find().sort("kills", -1).limit(limit)
-    return await cursor.to_list(length=limit)
+    try:
+        cursor = economy_collection.find().sort("kills", -1).limit(limit)
+        return await cursor.to_list(length=limit)
+    except Exception as e:
+        print(f"DB Error (get_top_killers): {e}")
+        return []

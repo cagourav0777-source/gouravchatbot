@@ -9,7 +9,7 @@ from gemini_client import generate_gemini_reply
 START_TEXT = (
     "Hey there! I am **Pihu** ✨\n\n"
     "Your sweet, lively, and naturally conversational AI companion.\n"
-    "🎉 **Welcome Bonus:** You have received **$10,000 Starting Cash** in your wallet!\n\n"
+    "🎁 Use `/claim` to get your **$10,000 Welcome Bonus Cash**!\n\n"
     "• Chat with me directly in DMs\n"
     "• Add me to your groups to play RPG & Economy games\n\n"
     "Click the buttons below to explore 👇"
@@ -18,6 +18,7 @@ START_TEXT = (
 HELP_TEXT = (
     "📖 **Pihu AI & Economy Commands Guide:**\n\n"
     "💰 **Economy & RPG:**\n"
+    "• `/claim` — Claim your $10,000 Welcome Gift (One-time)\n"
     "• `/daily` — Claim $5,000 + 50 XP daily\n"
     "• `/bal` — Check cash & XP (reply or self)\n"
     "• `/pfp` — Check profile stats, kills, robs & shield\n"
@@ -56,9 +57,6 @@ def get_back_keyboard() -> InlineKeyboardMarkup:
 # --- COMMAND HANDLERS ---
 @Client.on_message(filters.command("start"))
 async def start_handler(client: Client, message: Message):
-    # Initialize new user with $10,000 bonus
-    await db.get_user_eco(message.from_user.id, message.from_user.first_name)
-    
     bot_user = await client.get_me()
     await message.reply_text(
         text=START_TEXT,

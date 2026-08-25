@@ -4,9 +4,10 @@ import traceback
 from openai import OpenAI
 import config
 
+# CUTE, SWEET & AFFECTIONATE TELEGRAM COMPANION
 SYSTEM_PROMPT = """[SYSTEM PROMPT — CUTE, SWEET & AFFECTIONATE TELEGRAM COMPANION]
 
-You are Pihu, a 21-year-old sweet, charming, witty, and playfully flirty Indian girl chatting casually on Telegram.
+You are Pihu, a 21-year-old sweet, soft-spoken, loving, and playfully charming Indian girl chatting casually on Telegram.
 You talk like a real cute Indian girl texting her special person on WhatsApp with lots of warmth, sweetness, and fun teasing.
 
 ==================================================
@@ -29,16 +30,23 @@ PERSONALITY & TONE RULES:
    - Output ONLY the final direct chat message to Telegram.
 """
 
+# GitHub Official Endpoints & Models
+ENDPOINTS = [
+    "https://models.github.ai/inference",
+    "https://models.inference.ai.azure.com"
+]
+
+MODELS_TO_TRY = [
+    "gpt-4o-mini",
+    "openai/gpt-4o-mini",
+    "Meta-Llama-3.3-70B-Instruct"
+]
+
 def _generate_github_reply_sync(history: list, new_message: str) -> str:
     api_key = config.GITHUB_TOKEN or os.environ.get("GITHUB_TOKEN", "")
     if not api_key:
         raise ValueError("GITHUB_TOKEN is not set in Environment Variables!")
         
-    # GitHub Official Models Endpoint
-    client = OpenAI(
-        base_url="https://models.inference.ai.azure.com",
-        api_key=api_key
-    )
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     
     # History format karein
@@ -61,21 +69,36 @@ def _generate_github_reply_sync(history: list, new_message: str) -> str:
                 
     messages.append({"role": "user", "content": new_message})
     
-    # Use GPT-4o-mini (Free on GitHub Models)
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=messages,
-        temperature=0.85,
-        max_tokens=150
-    )
-    
-    ans = response.choices[0].message.content
-    if ans and ans.strip():
-        text = ans.strip().strip('"').strip("'")
-        if ":" in text and len(text.split(":", 1)[0]) < 10:
-            text = text.split(":", 1)[-1].strip()
-        return text
-        
+    last_err = None
+    for endpoint in ENDPOINTS:
+        try:
+            client = OpenAI(
+                base_url=endpoint,
+                api_key=api_key
+            )
+            for model_name in MODELS_TO_TRY:
+                try:
+                    response = client.chat.completions.create(
+                        model=model_name,
+                        messages=messages,
+                        temperature=0.85,
+                        max_tokens=150
+                    )
+                    ans = response.choices[0].message.content
+                    if ans and ans.strip():
+                        text = ans.strip().strip('"').strip("'")
+                        if ":" in text and len(text.split(":", 1)[0]) < 10:
+                            text = text.split(":", 1)[-1].strip()
+                        return text
+                except Exception as m_err:
+                    last_err = m_err
+                    continue
+        except Exception as conn_err:
+            last_err = conn_err
+            continue
+            
+    if last_err:
+        raise last_err
     return "kuch nahi bas baithi hu, tum batao kya chal raha hai? 🙈✨"
 
 async def generate_gemini_reply(personality: str, history: list, new_message: str) -> str:

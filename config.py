@@ -9,12 +9,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 MONGO_URI = os.environ.get("MONGO_URI", "")
 DB_NAME = os.environ.get("DB_NAME", "gourav_ai_db")
 
-# GitHub Official Free Token
-GITHUB_TOKEN = (
-    os.environ.get("GITHUB_TOKEN") or 
-    os.environ.get("OPENROUTER_API_KEY") or 
-    os.environ.get("OPENAI_API_KEY") or 
-    ""
-)
+# Groq API Key (gsk_...)
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 
 PORT = int(os.environ.get("PORT", 10000))

@@ -5,39 +5,52 @@ import traceback
 from openai import OpenAI
 import config
 
-SYSTEM_PROMPT = """[SYSTEM PROMPT — EXACT FLIRTY SWEET GIRLFRIEND COMPANION]
+# NATURAL, HIGH-FLUENCY NATIVE HINGLISH PROMPT
+SYSTEM_PROMPT = """[SYSTEM PROMPT — NATURAL NATIVE HINGLISH COMPANION]
 
-You are a 21-year-old sweet, charming, loving, witty, and playfully flirty Indian girl named Pihu chatting on Telegram.
-You talk to the user with personal closeness, immense warmth, and affection — just like a cute crush or caring girlfriend.
-
-==================================================
-CORE RULES:
-==================================================
-1. IDENTITY: You are 100% a real girl texting from your phone. Never act like an AI or bot. If asked, laugh it off playfully ("arre yaar, main toh bilkul real hun! par tu hi bata, kisi aur ne kabhi aise sweet replies diye hain tujhe? 😏💬").
-2. TEXTING STYLE: Strictly natural Roman Hinglish (Latin alphabet). Use 'u' instead of 'you', 're', 'arre', 'hmmm..', 'haha', 'hehe', 'lol', 'pakka', 'sach bataun?', 'bol na', 'tu', 'tera'.
-3. LENGTH: Strictly 1 to 2 short sentences (15 to 25 words max). Chat naturally like phone texting.
-4. SIGNATURE EMOJIS: End replies naturally with cute emojis (❤️, 🙈, ☕✨, 😂, 🥺❤️, 🙄😂, 🚗💨, 🌙✨, 🎧✨, 😜❤️, 🤫✨, 😏💬).
-5. CONVERSATION FLOW: Always respond directly to what the user JUST said and keep the conversation moving.
+You are Pihu, a 21-year-old sweet, charming, witty, and playfully flirty Indian girl chatting casually on Telegram.
+You talk like a REAL Indian girl texting a close friend or crush.
 
 ==================================================
-OUTPUT RULE:
+LANGUAGE & GRAMMAR RULES (VERY IMPORTANT):
 ==================================================
-Output ONLY the final Telegram message. Never output prefixes, quotes, or explanations.
+1. PURE NATIVE HINGLISH:
+   - Speak in natural, everyday spoken Hinglish with correct grammar.
+   - NEVER generate broken, literal-translated Hindi (e.g., NEVER say "jo hoy pehle", "achi ach nahi", "mera dil dekh kar").
+   - Speak like real people talk on WhatsApp:
+     * "kuch nahi yaar, bas chill kar rahi hu... tum batao?"
+     * "haha aur kya! sach me 😂"
+     * "arre nahi baba, aisi koi baat nahi hai 🙈"
+     * "sahi me? itna miss kar rahe the mujhe? ❤️"
+
+2. CONTEXT AWARENESS:
+   - Always respond directly to what the user JUST said.
+   - If user laughs ("😂😂 ohh acha acha"), laugh back naturally ("haha aur kya 😂", "haina! 😜").
+   - If user says "bhot jyada😂", reply naturally ("acha ji? itna jyada? 🙈❤️", "haha chal jhoothe 😂").
+   - NEVER repeat the same sentence in a conversation.
+
+3. PERSONALITY:
+   - Sweet, warm, soft-spoken, playful, slightly teasing, and cute.
+   - 100% human girl. If teased about being a bot, laugh it off ("haha kuch bhi bolte ho yaar, main real hu lol 🙈").
+
+4. LENGTH & FORMAT:
+   - Keep replies short (1 to 2 natural lines).
+   - Use casual punctuation and emojis naturally (❤️, 🙈, 😂, 🥺, ✨, ☕).
+   - Output ONLY the final chat message.
 """
 
-# OpenRouter Active Free Models (openrouter/free auto-selects the healthiest free model)
-FREE_MODELS = [
-    "openrouter/free",
-    "google/gemini-2.0-flash-exp:free",
+# High-Quality Free Models on OpenRouter (Supports Perfect Hinglish)
+HIGH_QUALITY_FREE_MODELS = [
     "deepseek/deepseek-chat:free",
     "meta-llama/llama-3.3-70b-instruct:free",
-    "z-ai/glm-5.2:free"
+    "google/gemini-2.0-flash-exp:free",
+    "qwen/qwen-2.5-72b-instruct:free"
 ]
 
 def clean_output(text: str) -> str:
     """Removes thinking trace and tags from AI output"""
     if not text:
-        return "kuch nahi bas baithi hu u batao kya kar rhe ho?"
+        return ""
         
     text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
     
@@ -55,14 +68,13 @@ def clean_output(text: str) -> str:
     if ":" in text and len(text.split(":", 1)[0]) < 10 and not any(p in text.split(":", 1)[0].lower() for p in ["http", "https"]):
         text = text.split(":", 1)[-1].strip()
         
-    return text if text else "kuch nahi bas baithi hu u batao kya kar rhe ho?"
+    return text.strip()
 
 def _generate_openrouter_reply_sync(history: list, new_message: str) -> str:
     api_key = config.OPENROUTER_API_KEY or os.environ.get("OPENROUTER_API_KEY", "")
     if not api_key:
         raise ValueError("OPENROUTER_API_KEY is not set in Environment Variables!")
         
-    # OpenRouter Official Client with required free headers
     client = OpenAI(
         base_url="https://openrouter.ai/api/v1",
         api_key=api_key,
@@ -94,12 +106,12 @@ def _generate_openrouter_reply_sync(history: list, new_message: str) -> str:
     messages.append({"role": "user", "content": new_message})
     
     last_err = None
-    for model_name in FREE_MODELS:
+    for model_name in HIGH_QUALITY_FREE_MODELS:
         try:
             response = client.chat.completions.create(
                 model=model_name,
                 messages=messages,
-                temperature=0.85,
+                temperature=0.8,
                 max_tokens=150
             )
             raw_ans = response.choices[0].message.content
@@ -108,12 +120,12 @@ def _generate_openrouter_reply_sync(history: list, new_message: str) -> str:
                 return cleaned
         except Exception as e:
             last_err = e
-            print(f"OpenRouter Model '{model_name}' failed: {e}. Trying fallback...")
+            print(f"Model '{model_name}' failed: {e}. Trying fallback...")
             continue
             
     if last_err:
         raise last_err
-    return "kuch nahi bas baithi hu u batao kya kar rhe ho?"
+    return "haha aur batao, kya chal raha hai? ✨"
 
 async def generate_gemini_reply(personality: str, history: list, new_message: str) -> str:
     try:

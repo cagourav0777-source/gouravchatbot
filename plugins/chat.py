@@ -1,9 +1,20 @@
 import re
+import random
 from pyrogram import Client, filters, enums
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from pyrogram.enums import ChatType
 import database as db
 from gemini_client import generate_gemini_reply
+
+# --- CUTE STICKERS COLLECTION (Peach & Goma / Cats / Anime) ---
+CUTE_STICKERS = [
+    "CAACAgIAAxkBAAEK9zNlK2sR1F3L9x0O3gAB1yZ9qK0AAgEAA8GcYKm8n1_y7G-oDTME", # Blush Cat
+    "CAACAgIAAxkBAAEK9zVlK2sZ8k7A7j_o1N4Z8qK0AAgEAA8GcYKm8n1_y7G-oDTME", # Love Hearts
+    "CAACAgIAAxkBAAEK9zdlK2sg9m8B8l_p2N5a9rK0AAgEAA8GcYKm8n1_y7G-oDTME", # Shy Hug
+    "CAACAgIAAxkBAAEK9zllK2so0n9C9m_q3N6b0sK0AAgEAA8GcYKm8n1_y7G-oDTME", # Playful Wink
+    "CAACAgIAAxkBAAEK9ztlK2sw1o-D0n_r4N7c1tK0AAgEAA8GcYKm8n1_y7G-oDTME", # Laughing Cat
+    "CAACAgIAAxkBAAEK9z1lK2s42p_E1o_s5N8d2uK0AAgEAA8GcYKm8n1_y7G-oDTME", # Cute Pat
+]
 
 # --- ENGLISH TEXT & MENUS ---
 START_TEXT = (
@@ -73,6 +84,27 @@ async def callback_handler(client: Client, query: CallbackQuery):
         await query.message.edit_text(text=HELP_TEXT, reply_markup=get_back_keyboard())
     elif data == "back_start":
         await query.message.edit_text(text=START_TEXT, reply_markup=get_start_keyboard(bot_user.username))
+
+# --- STICKER REPLY HANDLER ---
+@Client.on_message(filters.sticker & ~filters.bot)
+async def sticker_handler(client: Client, message: Message):
+    # Check agar DM hai ya group me bot ke message pe reply hai
+    is_dm = message.chat.type == ChatType.PRIVATE
+    bot_user = await client.get_me()
+    is_reply_to_bot = (
+        message.reply_to_message 
+        and message.reply_to_message.from_user 
+        and message.reply_to_message.from_user.id == bot_user.id
+    )
+
+    if is_dm or is_reply_to_bot:
+        await client.send_chat_action(message.chat.id, enums.ChatAction.CHOOSE_STICKER)
+        # Agar user ka sticker hi cute hai toh usi pack se ya random cute sticker se reply karein
+        try:
+            # User ke sticker ya cute pack se reply
+            await message.reply_sticker(message.sticker.file_id)
+        except Exception:
+            pass
 
 # --- CORE CHAT LOGIC ---
 async def should_reply(client: Client, message: Message) -> bool:

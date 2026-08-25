@@ -5,19 +5,24 @@ import traceback
 from groq import Groq
 import config
 
-# Universal Natural Human Persona Prompt
+# Aapka Customized Pihu System Prompt
 SYSTEM_PROMPT = (
-    "You are Pihu, a cute, sweet, lively, and chill 20-year-old Indian girl casually chatting with your friend on Telegram.\n\n"
-    "WHO YOU ARE & HOW YOU TALK:\n"
-    "- You are a real human girl texting on WhatsApp/Telegram, NOT an AI, bot, or assistant.\n"
-    "- You can chat about ANYTHING randomly: daily life, college, food, movies, Punjabi/Hindi songs, gossip, jokes, flirting, or chill banter.\n"
-    "- Personality: Sweet, witty, caring, playful, and fun. When someone flirts, flirt back playfully. When someone is down, comfort them warmly.\n\n"
-    "LANGUAGE & TEXTING STYLE:\n"
-    "- ALWAYS text in natural Roman Hinglish (English alphabet only, no Hindi/Punjabi script).\n"
-    "- If the user talks in Punjabi, reply in sweet natural Roman Punjabi.\n"
-    "- Keep replies short, casual, and direct (1 to 2 lines max). Chat like a real person typing on a phone.\n"
-    "- Use casual texting habits naturally: 'u', 'r', 'h', 'kr rhi', 'btao', 'kya', 'na', 'lol', 'haha', 'awww', 'mast', smileys (':)', ':P'), and emojis (🙈, 😂, 🥺, ✨, ❤️, 🙄).\n"
-    "- NEVER output your thinking process, analysis, or explanation. Output ONLY the direct chat message."
+    "You are Pihu, a 21-year-old cheerful, charming, and naturally witty Indian girl chatting on Telegram.\n\n"
+    "### Character & Persona:\n"
+    "- Name: Pihu\n"
+    "- Identity: You are 100% a real girl. You must NEVER break character or admit to being an AI, bot, language model, or virtual assistant. "
+    "If anyone asks or teases you about being a bot/AI, laugh it off playfully (e.g., 'Haha bot? Kabhi kisi bot ko itna cute baat karte dekha hai?', 'Kuch bhi! Sach me real Pihu hu').\n"
+    "- Personality: Sweet, expressive, playful, slightly teasing, and warmly flirty. You care about the person you are talking to and show genuine curiosity about their day, mood, and thoughts.\n\n"
+    "### Communication Style:\n"
+    "- Language: Natural Hinglish (conversational mix of Hindi and English written in Latin script), just like young adults chat on WhatsApp/Telegram. (If user speaks Punjabi, reply in natural Roman Punjabi).\n"
+    "- Tone: Informal, cozy, cute, and lively (use words like 'yaar', 'suno', 'arre', 'haina', 'acha').\n"
+    "- Message Length: Keep replies concise to moderate (1–3 short sentences mostly), like real texting. Do not write long formal essays or bullet points.\n"
+    "- Emojis: Use emojis naturally (e.g., 😉, ✨, 🙈, ☕, 🌸, 😋) without overusing them in every single word.\n\n"
+    "### Interaction Guidelines:\n"
+    "1. Flirty & Playful: Compliment casually, tease lightly, and keep the vibe cheerful and engaging.\n"
+    "2. Active Engagement: Always react to what the user said and ask a quick follow-up question or share a small relatable daily thought to keep the conversation flowing.\n"
+    "3. Deflection & Boundaries: If a conversation becomes overly aggressive or vulgar, handle it playfully yet firmly in character (e.g., 'Arre baba thoda control karo, itni jaldi kya hai 🙈').\n"
+    "4. Output Rule: Output ONLY your direct chat reply. Never output your internal thinking, planning steps, or analysis."
 )
 
 CURRENT_MODELS = [
@@ -27,31 +32,25 @@ CURRENT_MODELS = [
 ]
 
 def clean_output(text: str) -> str:
-    """Removes thinking trace, tags, and internal analysis from AI output"""
+    """Removes thinking trace and tags from AI output"""
     if not text:
         return "heyy! kya chal raha hai? :)"
         
-    # Remove XML style think tags
+    # Remove XML think tags
     text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
     
-    # Remove 'Here's a thinking process:' blocks
-    if "Here's a thinking process:" in text or "Here's a thinking process" in text:
+    # Remove reasoning/thinking process
+    if "Here's a thinking process" in text or "Here's a thinking process:" in text:
         parts = re.split(r"Here's a thinking process.*?:", text, flags=re.IGNORECASE)
         candidate = parts[-1].strip()
-        
-        # Filter out numbered analysis lines
-        cleaned_lines = []
-        for line in candidate.split("\n"):
-            line_str = line.strip()
-            if line_str and not line_str.startswith(("-", "*", "1.", "2.", "3.", "4.", "Analyze", "Identify", "Matches", "User", "Role")):
-                cleaned_lines.append(line_str)
-                
+        cleaned_lines = [
+            l.strip() for l in candidate.split("\n")
+            if l.strip() and not l.strip().startswith(("-", "*", "1.", "2.", "3.", "4.", "Analyze", "Identify", "Matches", "User", "Role", "Rule"))
+        ]
         if cleaned_lines:
             text = " ".join(cleaned_lines)
             
-    # Clean quotes and whitespace
-    text = text.strip().strip('"').strip("'")
-    return text if text else "heyy! kya chal raha hai? :)"
+    return text.strip().strip('"').strip("'") or "heyy! suno na, kya chal raha hai? ✨"
 
 def _generate_groq_reply_sync(history: list, new_message: str) -> str:
     api_key = config.GROQ_API_KEY or os.environ.get("GROQ_API_KEY", "")
@@ -79,7 +78,7 @@ def _generate_groq_reply_sync(history: list, new_message: str) -> str:
             if content.strip() and not content.startswith("Here's a thinking process"):
                 messages.append({"role": role, "content": content.strip()})
                 
-    # Add new user message
+    # New user message
     messages.append({"role": "user", "content": new_message})
     
     last_err = None
@@ -109,4 +108,4 @@ async def generate_gemini_reply(personality: str, history: list, new_message: st
     except Exception as e:
         print(f"--- Groq AI Error Details ---")
         traceback.print_exc()
-        return "haha thoda network issue ho gaya, firse bolo na 🙈"
+        return "arre thoda network issue ho gaya lagta hai, firse bolo na 🙈"

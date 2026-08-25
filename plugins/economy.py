@@ -7,6 +7,30 @@ import database as db
 def get_level(xp: int) -> int:
     return int(xp ** 0.5) // 5 + 1
 
+# --- 0. /claim (One-Time $10,000 Welcome Bonus) ---
+@Client.on_message(filters.command("claim"))
+async def claim_welcome_handler(client: Client, message: Message):
+    user = await db.get_user_eco(message.from_user.id, message.from_user.first_name)
+    
+    if user.get("has_claimed_welcome", False):
+        return await message.reply_text(
+            "⚠️ **Already Claimed!**\n"
+            "You have already claimed your **$10,000 One-Time Welcome Bonus**.\n"
+            "Use `/daily` to claim daily rewards every 24 hours!"
+        )
+        
+    await db.update_user_eco(message.from_user.id, {
+        "$inc": {"balance": 10000, "xp": 50},
+        "$set": {"has_claimed_welcome": True}
+    })
+    
+    await message.reply_text(
+        f"🎉 **Welcome Gift Claimed, {message.from_user.first_name}!**\n\n"
+        f"💰 **Cash Received:** `$10,000`\n"
+        f"⚡ **XP Gained:** `+50 XP`\n\n"
+        f"Check your balance with `/bal` and explore other commands in `/help`! ✨"
+    )
+
 # --- 1. /daily ---
 @Client.on_message(filters.command("daily"))
 async def daily_handler(client: Client, message: Message):
@@ -84,7 +108,7 @@ async def profile_handler(client: Client, message: Message):
         f"💀 **Deaths:** `{user.get('deaths', 0)}`"
     )
 
-# --- 4. /rob <amount> (Reply required) ---
+# --- 4. /rob <amount> ---
 @Client.on_message(filters.command("rob"))
 async def rob_handler(client: Client, message: Message):
     if not message.reply_to_message:
@@ -158,7 +182,7 @@ async def rob_handler(client: Client, message: Message):
             f"💸 You paid a fine of **${fine:,}**."
         )
 
-# --- 5. /kill (Reply required) ---
+# --- 5. /kill ---
 @Client.on_message(filters.command("kill"))
 async def kill_handler(client: Client, message: Message):
     if not message.reply_to_message:
@@ -231,10 +255,10 @@ async def revive_handler(client: Client, message: Message):
     
     await message.reply_text(f"💉 **Revived!** **{target.first_name}** has been brought back to life for **${cost}**.")
 
-# --- 7. /protect (Updated to $500) ---
+# --- 7. /protect ---
 @Client.on_message(filters.command("protect"))
 async def protect_handler(client: Client, message: Message):
-    cost = 500  # Price set to $500
+    cost = 500
     user = await db.get_user_eco(message.from_user.id, message.from_user.first_name)
     
     if user.get("balance", 0) < cost:
@@ -249,7 +273,7 @@ async def protect_handler(client: Client, message: Message):
     })
     await message.reply_text(f"🛡️ **Shield Activated!** You are immune to all robs for the next **24 Hours** for **${cost}**.")
 
-# --- 8. /give <amount> ---
+# --- 8. /give ---
 @Client.on_message(filters.command("give"))
 async def give_handler(client: Client, message: Message):
     if not message.reply_to_message:

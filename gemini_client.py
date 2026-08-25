@@ -1,4 +1,5 @@
 import os
+import re
 import asyncio
 import traceback
 from openai import OpenAI
@@ -24,22 +25,51 @@ OUTPUT RULE:
 Output ONLY the final Telegram message. Never output prefixes, quotes, or explanations.
 """
 
-# 100% Free Lifetime Models on OpenRouter
+# OpenRouter Active Free Models (openrouter/free auto-selects the healthiest free model)
 FREE_MODELS = [
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "deepseek/deepseek-chat:free",
+    "openrouter/free",
     "google/gemini-2.0-flash-exp:free",
-    "mistralai/mistral-7b-instruct:free"
+    "deepseek/deepseek-chat:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "z-ai/glm-5.2:free"
 ]
+
+def clean_output(text: str) -> str:
+    """Removes thinking trace and tags from AI output"""
+    if not text:
+        return "kuch nahi bas baithi hu u batao kya kar rhe ho?"
+        
+    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    
+    if "Here's a thinking process" in text or "Here's a thinking process:" in text:
+        parts = re.split(r"Here's a thinking process.*?:", text, flags=re.IGNORECASE)
+        candidate = parts[-1].strip()
+        cleaned_lines = [
+            l.strip() for l in candidate.split("\n")
+            if l.strip() and not l.strip().startswith(("-", "*", "1.", "2.", "3.", "4.", "Analyze", "Identify", "Matches", "User", "Role", "Rule", "Guidelines"))
+        ]
+        if cleaned_lines:
+            text = " ".join(cleaned_lines)
+            
+    text = text.strip().strip('"').strip("'")
+    if ":" in text and len(text.split(":", 1)[0]) < 10 and not any(p in text.split(":", 1)[0].lower() for p in ["http", "https"]):
+        text = text.split(":", 1)[-1].strip()
+        
+    return text if text else "kuch nahi bas baithi hu u batao kya kar rhe ho?"
 
 def _generate_openrouter_reply_sync(history: list, new_message: str) -> str:
     api_key = config.OPENROUTER_API_KEY or os.environ.get("OPENROUTER_API_KEY", "")
     if not api_key:
         raise ValueError("OPENROUTER_API_KEY is not set in Environment Variables!")
         
+    # OpenRouter Official Client with required free headers
     client = OpenAI(
         base_url="https://openrouter.ai/api/v1",
-        api_key=api_key
+        api_key=api_key,
+        default_headers={
+            "HTTP-Referer": "https://gouravchatbot.onrender.com",
+            "X-Title": "Pihu AI Bot"
+        }
     )
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     
@@ -72,14 +102,13 @@ def _generate_openrouter_reply_sync(history: list, new_message: str) -> str:
                 temperature=0.85,
                 max_tokens=150
             )
-            ans = response.choices[0].message.content
-            if ans and ans.strip():
-                text = ans.strip().strip('"').strip("'")
-                if ":" in text and len(text.split(":", 1)[0]) < 10:
-                    text = text.split(":", 1)[-1].strip()
-                return text
+            raw_ans = response.choices[0].message.content
+            cleaned = clean_output(raw_ans)
+            if cleaned:
+                return cleaned
         except Exception as e:
             last_err = e
+            print(f"OpenRouter Model '{model_name}' failed: {e}. Trying fallback...")
             continue
             
     if last_err:

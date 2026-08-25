@@ -23,47 +23,12 @@ PERSONALITY_PROMPTS = {
     ),
 }
 
-_CACHED_MODEL_ID = None
-
-def get_active_model(client: Groq) -> str:
-    """Aapke Groq account me currently active model ko automatically detect karta hai"""
-    global _CACHED_MODEL_ID
-    if _CACHED_MODEL_ID:
-        return _CACHED_MODEL_ID
-        
-    try:
-        models_response = client.models.list()
-        available_models = [m.id for m in models_response.data if getattr(m, 'active', True)]
-        print(f"Available Groq models on your account: {available_models}")
-        
-        # Priority order
-        preferred_models = [
-            "openai/gpt-oss-120b",
-            "openai/gpt-oss-20b",
-            "llama-3.3-70b-versatile",
-            "llama-3.1-8b-instant",
-            "gemma2-9b-it"
-        ]
-        
-        for pref in preferred_models:
-            if pref in available_models:
-                _CACHED_MODEL_ID = pref
-                return pref
-                
-        # Filter out non-chat models (whisper/audio/embedding/guard)
-        for m_id in available_models:
-            m_lower = m_id.lower()
-            if not any(x in m_lower for x in ["whisper", "embed", "safeguard", "guard", "vision"]):
-                _CACHED_MODEL_ID = m_id
-                return m_id
-                
-        if available_models:
-            _CACHED_MODEL_ID = available_models[0]
-            return _CACHED_MODEL_ID
-    except Exception as e:
-        print(f"Error fetching dynamic models: {e}")
-        
-    return "llama-3.1-8b-instant"
+# Current Active Groq Production Models
+CURRENT_MODELS = [
+    "openai/gpt-oss-20b",
+    "openai/gpt-oss-120b",
+    "qwen/qwen3.6-27b"
+]
 
 def _generate_groq_reply_sync(personality: str, history: list, new_message: str) -> str:
     api_key = config.GROQ_API_KEY or os.environ.get("GROQ_API_KEY", "")
@@ -75,7 +40,7 @@ def _generate_groq_reply_sync(personality: str, history: list, new_message: str)
     
     messages = [{"role": "system", "content": system_prompt}]
     
-    # Safely parse history
+    # Safely parse past history
     if history and isinstance(history, list):
         for entry in history:
             role = "assistant" if entry.get("role") in ["model", "assistant"] else "user"
@@ -93,21 +58,27 @@ def _generate_groq_reply_sync(personality: str, history: list, new_message: str)
             if content.strip():
                 messages.append({"role": role, "content": content.strip()})
                 
-    # Add current message
+    # Add new user message
     messages.append({"role": "user", "content": new_message})
     
-    # Auto-detect active model
-    model_name = get_active_model(client)
-    print(f"Generating reply using Groq model: {model_name}")
-    
-    chat_completion = client.chat.completions.create(
-        messages=messages,
-        model=model_name,
-        temperature=0.8,
-        max_tokens=300
-    )
-    
-    return chat_completion.choices[0].message.content.strip()
+    last_err = None
+    for model_name in CURRENT_MODELS:
+        try:
+            chat_completion = client.chat.completions.create(
+                messages=messages,
+                model=model_name,
+                temperature=0.8,
+                max_tokens=300
+            )
+            return chat_completion.choices[0].message.content.strip()
+        except Exception as e:
+            last_err = e
+            print(f"Groq model '{model_name}' failed: {e}. Trying next...")
+            continue
+            
+    if last_err:
+        raise last_err
+    return "Hmph... mujhe samajh nahi aaya, baka!"
 
 async def generate_gemini_reply(personality: str, history: list, new_message: str) -> str:
     try:

@@ -3,18 +3,39 @@ import random
 from pyrogram import Client, filters, enums
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from pyrogram.enums import ChatType
+from pyrogram.raw.functions.messages import GetStickerSet
+from pyrogram.raw.types import InputStickerSetShortName
 import database as db
 from gemini_client import generate_gemini_reply
 
-# --- CUTE STICKERS COLLECTION (Peach & Goma / Cats / Anime) ---
-CUTE_STICKERS = [
-    "CAACAgIAAxkBAAEK9zNlK2sR1F3L9x0O3gAB1yZ9qK0AAgEAA8GcYKm8n1_y7G-oDTME", # Blush Cat
-    "CAACAgIAAxkBAAEK9zVlK2sZ8k7A7j_o1N4Z8qK0AAgEAA8GcYKm8n1_y7G-oDTME", # Love Hearts
-    "CAACAgIAAxkBAAEK9zdlK2sg9m8B8l_p2N5a9rK0AAgEAA8GcYKm8n1_y7G-oDTME", # Shy Hug
-    "CAACAgIAAxkBAAEK9zllK2so0n9C9m_q3N6b0sK0AAgEAA8GcYKm8n1_y7G-oDTME", # Playful Wink
-    "CAACAgIAAxkBAAEK9ztlK2sw1o-D0n_r4N7c1tK0AAgEAA8GcYKm8n1_y7G-oDTME", # Laughing Cat
-    "CAACAgIAAxkBAAEK9z1lK2s42p_E1o_s5N8d2uK0AAgEAA8GcYKm8n1_y7G-oDTME", # Cute Pat
+# --- CACHED CUTE STICKER PACKS (Auto-loaded from Telegram) ---
+_LOADED_STICKERS = []
+
+POPULAR_CUTE_PACKS = [
+    "PeachGoma_Love",
+    "MochiMochiCat",
+    "peachandgoma",
+    "QubyLove"
 ]
+
+# Curated Fallback Stickers by Mood
+STICKER_MOODS = {
+    "love": [
+        "CAACAgIAAxkBAAEK9zNlK2sR1F3L9x0O3gAB1yZ9qK0AAgEAA8GcYKm8n1_y7G-oDTME",
+        "CAACAgIAAxkBAAEK9zVlK2sZ8k7A7j_o1N4Z8qK0AAgEAA8GcYKm8n1_y7G-oDTME",
+        "CAACAgIAAxkBAAEK9zdlK2sg9m8B8l_p2N5a9rK0AAgEAA8GcYKm8n1_y7G-oDTME"
+    ],
+    "laugh": [
+        "CAACAgIAAxkBAAEK9ztlK2sw1o-D0n_r4N7c1tK0AAgEAA8GcYKm8n1_y7G-oDTME",
+        "CAACAgIAAxkBAAEK9z1lK2s42p_E1o_s5N8d2uK0AAgEAA8GcYKm8n1_y7G-oDTME"
+    ],
+    "sad": [
+        "CAACAgIAAxkBAAEK9zdlK2sg9m8B8l_p2N5a9rK0AAgEAA8GcYKm8n1_y7G-oDTME"
+    ],
+    "tease": [
+        "CAACAgIAAxkBAAEK9zllK2so0n9C9m_q3N6b0sK0AAgEAA8GcYKm8n1_y7G-oDTME"
+    ]
+}
 
 # --- ENGLISH TEXT & MENUS ---
 START_TEXT = (
@@ -44,7 +65,7 @@ HELP_TEXT = (
     "• `/teach <trigger> | <response>` — Add custom trigger (Admin only)\n"
     "• `/unteach <trigger>` — Remove custom trigger (Admin only)\n"
     "• `/triggers` — View all active triggers in the chat\n\n"
-    "✨ *Simply send a message or say 'Pihu' in groups to chat!*"
+    "✨ *Simply send a message, sticker, or say 'Pihu' in groups!*"
 )
 
 def get_start_keyboard(bot_username: str) -> InlineKeyboardMarkup:
@@ -85,10 +106,27 @@ async def callback_handler(client: Client, query: CallbackQuery):
     elif data == "back_start":
         await query.message.edit_text(text=START_TEXT, reply_markup=get_start_keyboard(bot_user.username))
 
-# --- STICKER REPLY HANDLER ---
+# --- SMART CUTE STICKER REPLY HANDLER ---
+async def load_stickers_if_needed(client: Client):
+    global _LOADED_STICKERS
+    if _LOADED_STICKERS:
+        return
+    for pack in POPULAR_CUTE_PACKS:
+        try:
+            sticker_set = await client.invoke(
+                GetStickerSet(
+                    stickerset=InputStickerSetShortName(short_name=pack),
+                    hash=0
+                )
+            )
+            if sticker_set and sticker_set.documents:
+                for doc in sticker_set.documents:
+                    _LOADED_STICKERS.append(doc)
+        except Exception:
+            continue
+
 @Client.on_message(filters.sticker & ~filters.bot)
 async def sticker_handler(client: Client, message: Message):
-    # Check agar DM hai ya group me bot ke message pe reply hai
     is_dm = message.chat.type == ChatType.PRIVATE
     bot_user = await client.get_me()
     is_reply_to_bot = (
@@ -97,12 +135,42 @@ async def sticker_handler(client: Client, message: Message):
         and message.reply_to_message.from_user.id == bot_user.id
     )
 
-    if is_dm or is_reply_to_bot:
-        await client.send_chat_action(message.chat.id, enums.ChatAction.CHOOSE_STICKER)
-        # Agar user ka sticker hi cute hai toh usi pack se ya random cute sticker se reply karein
+    if not (is_dm or is_reply_to_bot):
+        return
+
+    await client.send_chat_action(message.chat.id, enums.ChatAction.CHOOSE_STICKER)
+    
+    # 1. Try loading cute sticker from public packs
+    await load_stickers_if_needed(client)
+    
+    # 2. Pick a cute sticker that is DIFFERENT from the user's sticker
+    chosen_sticker = None
+    if _LOADED_STICKERS:
+        chosen_doc = random.choice(_LOADED_STICKERS)
+        # Verify it's not the same sticker file
+        if str(getattr(chosen_doc, 'id', '')) != str(getattr(message.sticker, 'file_unique_id', '')):
+            chosen_sticker = chosen_doc
+            
+    # 3. Fallback by mood if pack load failed
+    if not chosen_sticker:
+        emoji = message.sticker.emoji or ""
+        if any(e in emoji for e in ["❤️", "💖", "💕", "🥰", "😘", "😍", "🙈"]):
+            chosen_sticker = random.choice(STICKER_MOODS["love"])
+        elif any(e in emoji for e in ["😂", "🤣", "😆", "😹", "😜"]):
+            chosen_sticker = random.choice(STICKER_MOODS["laugh"])
+        elif any(e in emoji for e in ["😭", "😢", "🥺", "😔", "💔"]):
+            chosen_sticker = random.choice(STICKER_MOODS["sad"])
+        else:
+            chosen_sticker = random.choice(STICKER_MOODS["tease"])
+
+    try:
+        if chosen_sticker:
+            await message.reply_cached_media(chosen_sticker)
+    except Exception:
         try:
-            # User ke sticker ya cute pack se reply
-            await message.reply_sticker(message.sticker.file_id)
+            # Fallback to direct mood sticker ID
+            fallback_id = random.choice(STICKER_MOODS["love"])
+            await message.reply_sticker(fallback_id)
         except Exception:
             pass
 

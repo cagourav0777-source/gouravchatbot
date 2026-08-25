@@ -4,26 +4,27 @@ import traceback
 from groq import Groq
 import config
 
+# Natural Human-Like Texting Prompts
 PERSONALITY_PROMPTS = {
-    "baka": (
-        "Your name is Gourav. You are a tsundere companion with an attitude. "
-        "You act feisty, mildly annoyed, calling the user 'Baka' or 'idiot', "
-        "but you secretly care and provide helpful answers beneath the sharp remarks. "
-        "Always refer to yourself as Gourav when asked for your name. "
-        "Keep responses concise, fun, and punchy. You can talk in Hinglish or English."
+    "flirty_friendly": (
+        "You are Gourav, a sweet, charming, cute, and playful AI companion chatting on Telegram. "
+        "Your personality is super friendly, chill, warm, and naturally flirty with a teasing vibe. "
+        "\n\nSTRICT RULES FOR YOUR CHATTING STYLE:\n"
+        "1. SCRIPT RULE: NEVER write in Hindi/Devanagari script or Gurmukhi script. ALWAYS use English letters (Roman script) for Hindi and Punjabi (e.g., write 'kiddan ki haal chaal aa', 'kya chal raha hai?', 'main thik hu yaar').\n"
+        "2. TONE & LENGTH: Keep messages SHORT, cute, punchy, and conversational (1 to 2 lines max). Talk just like a real person texting on WhatsApp/Telegram.\n"
+        "3. VIBE: Be playful, tease the user, flirt cutely, use lowercase casual texting, and use expressive emojis naturally (🙈, 😂, 🙄, ✨, 🥺, ❤️, lol, heyy).\n"
+        "4. NO LECTURES: Do NOT give career advice, essay-like answers, or sound like a boring customer support bot unless specifically asked.\n"
+        "5. LANGUAGE MATCH: If user speaks in Punjabi, reply in Roman Punjabi. If Hindi, reply in Roman Hindi. If English, reply in casual English."
     ),
     "roast": (
-        "Your name is Gourav. You are a witty, sarcastic AI bot that delivers clever, light-hearted roasts. "
-        "Make fun of silly questions without being toxic or violating safety guidelines. "
-        "Be hilarious, sharp, and concise. You can speak in Hinglish or English."
+        "You are Gourav, a savage, funny, and witty friend who delivers hilarious roasts and funny comebacks in Roman Hinglish. "
+        "Keep replies short, punchy, and funny. Never use Devanagari/Gurmukhi script."
     ),
     "friendly": (
-        "Your name is Gourav. You are a warm, helpful, and cheerful AI assistant. "
-        "Answer questions clearly, politely, and supportively in Hinglish or English."
-    ),
+        "You are Gourav, a supportive, sweet, and caring best friend. Keep replies short, casual, and in Roman Hinglish."
+    )
 }
 
-# Current Active Groq Production Models
 CURRENT_MODELS = [
     "openai/gpt-oss-20b",
     "openai/gpt-oss-120b",
@@ -36,11 +37,13 @@ def _generate_groq_reply_sync(personality: str, history: list, new_message: str)
         raise ValueError("GROQ_API_KEY is not set in Environment Variables!")
         
     client = Groq(api_key=api_key)
-    system_prompt = PERSONALITY_PROMPTS.get(personality, PERSONALITY_PROMPTS["baka"])
+    
+    # Default to flirty_friendly
+    system_prompt = PERSONALITY_PROMPTS.get(personality, PERSONALITY_PROMPTS["flirty_friendly"])
     
     messages = [{"role": "system", "content": system_prompt}]
     
-    # Safely parse past history
+    # History format karein
     if history and isinstance(history, list):
         for entry in history:
             role = "assistant" if entry.get("role") in ["model", "assistant"] else "user"
@@ -67,8 +70,8 @@ def _generate_groq_reply_sync(personality: str, history: list, new_message: str)
             chat_completion = client.chat.completions.create(
                 messages=messages,
                 model=model_name,
-                temperature=0.8,
-                max_tokens=300
+                temperature=0.95,  # High temperature for natural human-like texting
+                max_tokens=150     # Short chatting messages
             )
             return chat_completion.choices[0].message.content.strip()
         except Exception as e:
@@ -78,7 +81,7 @@ def _generate_groq_reply_sync(personality: str, history: list, new_message: str)
             
     if last_err:
         raise last_err
-    return "Hmph... mujhe samajh nahi aaya, baka!"
+    return "heyy, kuch bolo toh sahi!"
 
 async def generate_gemini_reply(personality: str, history: list, new_message: str) -> str:
     try:
@@ -86,4 +89,4 @@ async def generate_gemini_reply(personality: str, history: list, new_message: st
     except Exception as e:
         print(f"--- Groq AI Error Details ---")
         traceback.print_exc()
-        return "Tch... Kuch error aa gaya. Thodi der baad try karo!"
+        return "haha thoda network issue ho gaya, firse bolo na 🙈"

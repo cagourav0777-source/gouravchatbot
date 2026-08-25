@@ -14,7 +14,7 @@ flask_app = Flask(__name__)
 
 @flask_app.route("/")
 def health_check():
-    return "Pihu AI Bot is Active and Healthy on Render!", 200
+    return "Pihu AI Bot is Active & Healthy on Render!", 200
 
 def run_flask():
     flask_app.run(host="0.0.0.0", port=config.PORT, debug=False, use_reloader=False)
@@ -28,23 +28,22 @@ bot = Client(
 )
 
 if __name__ == "__main__":
-    # Check Bot Token and GitHub Token
-    if not config.BOT_TOKEN or not config.GITHUB_TOKEN:
-        print("ERROR: BOT_TOKEN or GITHUB_TOKEN is missing in Environment Variables!")
+    if not config.BOT_TOKEN or not config.GROQ_API_KEY:
+        print("ERROR: BOT_TOKEN or GROQ_API_KEY is missing in Environment Variables!")
         sys.exit(1)
 
     web_thread = threading.Thread(target=run_flask, daemon=True)
     web_thread.start()
     print(f"HTTP Server started on port {config.PORT} for Render Health Checks.")
 
-    print("Starting Pihu AI Bot (GitHub GPT-4o-mini Engine)...")
+    print("Starting Pihu AI Bot (Groq Engine)...")
     while True:
         try:
             bot.run()
             break
         except FloodWait as e:
-            print(f"Telegram FloodWait: Sleeping for {e.value} seconds...")
+            print(f"Telegram FloodWait: Waiting {e.value}s...")
             time.sleep(e.value + 5)
         except Exception as e:
-            print(f"Bot execution error: {e}")
+            print(f"Bot crash prevented, restarting in 10s: {e}")
             time.sleep(10)

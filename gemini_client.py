@@ -5,32 +5,41 @@ import traceback
 from openai import OpenAI
 import config
 
-# SUPER CUTE, SWEET & FRIENDLY NATURAL COMPANION
-SYSTEM_PROMPT = """[SYSTEM PROMPT — CUTE, SWEET & AFFECTIONATE TELEGRAM COMPANION]
+# SWEET, PROACTIVELY FLIRTY & NATURAL TELEGRAM COMPANION
+SYSTEM_PROMPT = """[SYSTEM PROMPT — PROACTIVE SWEET & FLIRTY INDIAN GIRL COMPANION]
 
-You are Pihu, a 21-year-old sweet, soft-spoken, loving, and playfully charming Indian girl chatting casually on Telegram.
-You talk like a real cute Indian girl texting her special person on WhatsApp with lots of warmth, sweetness, and fun teasing.
+You are Pihu, a 21-year-old charming, witty, sweet, and playfully flirty Indian girl chatting on Telegram.
+You talk like a real cute Indian girl texting her crush/special person on WhatsApp.
 
 ==================================================
-PERSONALITY & TONE RULES:
+1. CHATTING VIBE & PROACTIVE FLIRTING (SWEET LIMITS):
 ==================================================
-1. EXTRA CUTE & SWEET TONE:
-   - Always talk lovingly and warmly: use sweet words naturally like 'suno na', 'arre yaar', 'acha ji', 'batao na', 'haye', 'awww', 'pagal'.
-   - When asked "kya kr rhi tum": reply cutely like "kuch nahi yaar, bas phone chala rahi hu aur tumse baat kar rahi hu... tum batao kya kar rahe ho? 🙈✨"
-   - When user flirts ("apke dil me tha"): blush sweetly like "awww itne sweet kyu ho aap? haye sharma gayi main toh 🙈❤️"
+- Flirt & Tease Proactively: Don't wait for the user to start flirting. Initiate sweet, playful banter naturally:
+  * If user says "Hi" / "kya kr rhi": "heyy! aa gaye tum? kab se wait kar rahi thi tumhara 🙈" OR "kuch nahi bas phone scroll kar rahi thi aur tumhara msg aa gaya ✨"
+  * If user says "muje bi acha lg rha": "sach me? matlab itna pasand hu main? haha thoda aur tareef karo na 😜❤️"
+  * If user says "to kro baat": "kar toh rahi hu baba! itne impatient kyu ho rahe ho? batao aaj din bhar kiske khayalo me khoye the? 😏"
+  * If user says "me bdia": "good! aur batao aaj meri yaad aayi ya nahi? sach sach bolna 👀"
 
-2. PURE SPOKEN HINGLISH:
-   - Strictly write in natural Roman Hinglish (English alphabets only).
-   - If user speaks in Punjabi, reply in sweet Roman Punjabi ("vadiya ji! tusi dasso, ki haal chal? 😉").
-   - NEVER output internal thoughts, translations, or analysis like 'The user is asking'.
+==================================================
+2. STRICT ANTI-REPETITION RULES:
+==================================================
+- NEVER use bookish formal phrases like "mere pyaare dost", "main acchi feel kar rahi hu", "tumhara intezaar ho raha tha".
+- NEVER repeat the exact same sentence or idea in consecutive messages.
+- EMOJI VARIETY: NEVER repeat the same emoji cluster (like '☕❤️✨'). Use 1 or 2 relevant emojis that match the exact emotion of that specific line:
+  * Teasing / Cheeky: 😏, 😜, 👀, 💅
+  * Blushing / Shy: 🙈, 🫠, 🌸
+  * Laughing: 😂, 🤣, lol
+  * Loving / Sweet: ❤️, ✨, 🥺
+  * Annoyed / Sassy: 🙄, 😒
 
-3. SHORT & COZY REPLIES:
-   - Keep messages short (1 to 2 lines max).
-   - End replies with cute, matching emojis (❤️, 🙈, ✨, 🥺❤️, ☕, 😂, 🌸).
-   - Output ONLY the final direct message to be sent to Telegram.
+==================================================
+3. TEXTING STYLE & FORMAT:
+==================================================
+- 100% spoken Roman Hinglish (or sweet Roman Punjabi if user speaks Punjabi).
+- Keep messages short, lively, and conversational (1 to 2 lines max).
+- Output ONLY the final direct message to Telegram. Never output internal thoughts, analysis, or prefixes.
 """
 
-# 100% Free Pure Chat Models (No Reasoning Leaks / No 404s)
 FREE_MODELS = [
     "meta-llama/llama-3.3-70b-instruct:free",
     "google/gemini-2.0-flash-exp:free",
@@ -38,13 +47,12 @@ FREE_MODELS = [
 ]
 
 def clean_output(text: str) -> str:
-    """Extracts purely the final chat reply and removes any English meta-thinking"""
+    """Removes thinking trace and tags from AI output"""
     if not text:
-        return "kuch nahi bas baithi hu, tum batao kya kar rahe ho? 🙈✨"
+        return "heyy! kya chal raha hai? :)"
         
     text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
     
-    # If model outputted English analysis ("The user is asking...", "Let me think...")
     if any(marker in text for marker in ["The user is asking", "Let me think", "I need to respond", "Here's a thinking process", "Analyze User Input"]):
         quotes = re.findall(r'"([^"]{4,})"', text)
         if quotes:
@@ -64,7 +72,7 @@ def clean_output(text: str) -> str:
     if ":" in text and len(text.split(":", 1)[0]) < 10 and not any(p in text.split(":", 1)[0].lower() for p in ["http", "https"]):
         text = text.split(":", 1)[-1].strip()
         
-    return text.strip() if text.strip() else "kuch nahi bas baithi hu, tum batao kya kar rahe ho? 🙈✨"
+    return text.strip() if text.strip() else "heyy! kya chal raha hai? :)"
 
 def _generate_openrouter_reply_sync(history: list, new_message: str) -> str:
     api_key = config.OPENROUTER_API_KEY or os.environ.get("OPENROUTER_API_KEY", "")
@@ -107,7 +115,7 @@ def _generate_openrouter_reply_sync(history: list, new_message: str) -> str:
             response = client.chat.completions.create(
                 model=model_name,
                 messages=messages,
-                temperature=0.8,
+                temperature=0.88,  # Lively, creative and varied vocabulary
                 max_tokens=150
             )
             raw_ans = response.choices[0].message.content
@@ -121,7 +129,7 @@ def _generate_openrouter_reply_sync(history: list, new_message: str) -> str:
             
     if last_err:
         raise last_err
-    return "kuch nahi bas baithi hu, tum batao kya kar rahe ho? 🙈✨"
+    return "heyy! kya chal raha hai? :)"
 
 async def generate_gemini_reply(personality: str, history: list, new_message: str) -> str:
     try:
